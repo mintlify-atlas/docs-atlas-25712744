@@ -1,0 +1,467 @@
+---
+title: Accessibility
+description: Built-in accessibility features and screen reader support
+---
+
+Freya provides built-in accessibility support powered by [AccessKit](https://github.com/AccessKit/accesskit). Enable keyboard navigation, screen reader support, and accessibility metadata for your applications.
+
+## Overview
+
+Accessibility in Freya includes:
+
+- **Keyboard navigation** - Tab through focusable elements
+- **Screen reader support** - Integrates with platform screen readers
+- **Focus management** - Programmatic focus control
+- **Accessibility attributes** - ARIA-like roles and properties
+
+## Keyboard Navigation
+
+### Tab Navigation
+
+Elements are automatically included in tab order:
+
+```rust
+rect()
+    .child(Button::new().child("Button 1"))  // Tab order: 1
+    .child(Button::new().child("Button 2"))  // Tab order: 2
+    .child(Button::new().child("Button 3"))  // Tab order: 3
+```
+
+Navigation:
+- `Tab` - Move to next focusable element
+- `Shift+Tab` - Move to previous focusable element
+
+### Focusable Elements
+
+Mark elements as focusable:
+
+```rust
+rect()
+    .focusable(Focusable::Enabled)
+    .background(Color::BLUE)
+    .on_key_down(|e| {
+        println!("Key pressed: {:?}", e.key);
+    })
+```
+
+#### Focusable States
+
+```rust
+use freya::prelude::Focusable;
+
+// Can receive focus
+rect().focusable(Focusable::Enabled)
+
+// Cannot receive focus
+rect().focusable(Focusable::Disabled)
+
+// Inherit from parent (default)
+rect().focusable(Focusable::Unknown)
+```
+
+## Platform Context
+
+Access accessibility state through the Platform context:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let platform = Platform::get();
+
+    // Get currently focused accessibility ID
+    let focused_id = platform.focused_accessibility_id.read();
+
+    rect()
+        .expanded()
+        .child(format!("Focused ID: {:?}", focused_id))
+}
+```
+
+### Platform Properties
+
+```rust
+let platform = Platform::get();
+
+// Current focused element ID
+let focused_id = platform.focused_accessibility_id.read();
+
+// Current focused node
+let focused_node = platform.focused_accessibility_node.read();
+
+// Navigation mode
+let nav_mode = platform.navigation_mode.read();
+
+// Check if using keyboard navigation
+if *nav_mode == NavigationMode::Keyboard {
+    // Show focus indicators
+}
+```
+
+## Focus Management
+
+### Programmatic Focus
+
+Focus elements programmatically:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct FocusExample;
+
+impl Component for FocusExample {
+    fn render(&self) -> impl IntoElement {
+        let platform = Platform::get();
+
+        rect()
+            .child(
+                Button::new()
+                    .on_press(move |_| {
+                        // Request focus on specific element
+                        platform.send(UserEvent::FocusAccessibilityNode(
+                            FocusStrategy::Next
+                        ));
+                    })
+                    .child("Focus Next")
+            )
+    }
+}
+```
+
+### Focus Strategies
+
+```rust
+use freya::prelude::FocusStrategy;
+
+// Focus next element
+FocusStrategy::Next
+
+// Focus previous element
+FocusStrategy::Previous
+
+// Focus first element
+FocusStrategy::First
+
+// Focus last element
+FocusStrategy::Last
+
+// Focus by ID
+FocusStrategy::NodeId(node_id)
+```
+
+## Screen Reader Support
+
+Freya automatically exposes accessibility information to platform screen readers.
+
+### Accessing Screen Reader
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let screen_reader = ScreenReader::get();
+
+    // Check if screen reader is active
+    let is_active = screen_reader.is_active();
+
+    rect().child(
+        if is_active {
+            "Screen reader detected"
+        } else {
+            "No screen reader"
+        }
+    )
+}
+```
+
+### Accessibility Announcements
+
+While Freya doesn't have a direct announcement API, screen readers automatically announce:
+- Focused element labels
+- Role changes
+- State changes
+- Dynamic content updates
+
+## Accessibility Properties
+
+Elements expose accessibility information through the element tree. Built-in components like `Button`, `Input`, and `Checkbox` automatically set appropriate roles and properties.
+
+### Example: Custom Accessible Component
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct AccessibleCard {
+    title: String,
+    content: String,
+}
+
+impl Component for AccessibleCard {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .focusable(Focusable::Enabled)
+            .padding(12.)
+            .background((240, 240, 240))
+            .corner_radius(8.)
+            .on_key_down(|e| {
+                if matches!(e.key, Key::Enter) {
+                    println!("Card activated");
+                }
+            })
+            .child(
+                label()
+                    .font_size(18.)
+                    .font_weight(FontWeight::Bold)
+                    .text(&self.title)
+            )
+            .child(
+                label()
+                    .text(&self.content)
+            )
+    }
+}
+```
+
+## Navigation Modes
+
+Freya tracks whether the user is navigating with keyboard or mouse:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct NavigationAware;
+
+impl Component for NavigationAware {
+    fn render(&self) -> impl IntoElement {
+        let platform = Platform::get();
+        let nav_mode = platform.navigation_mode.read();
+
+        let focus_style = match *nav_mode {
+            NavigationMode::Keyboard => Some(Color::BLUE),
+            NavigationMode::NotKeyboard => None,
+        };
+
+        rect()
+            .focusable(Focusable::Enabled)
+            .padding(12.)
+            .background((240, 240, 240))
+            .border(focus_style.map(|c| Border::new(2., c)))
+            .child("Click or tab to focus")
+    }
+}
+```
+
+## Built-in Component Accessibility
+
+### Button
+
+```rust
+Button::new()
+    .child("Click Me")
+    // Automatically:
+    // - Role: Button
+    // - Focusable: Enabled
+    // - Activatable: Enter/Space
+```
+
+### Input
+
+```rust
+Input::new()
+    // Automatically:
+    // - Role: TextInput
+    // - Focusable: Enabled
+    // - Editable: true
+```
+
+### Checkbox
+
+```rust
+Checkbox::new()
+    .checked(true)
+    // Automatically:
+    // - Role: Checkbox
+    // - Focusable: Enabled
+    // - State: Checked/Unchecked
+```
+
+### Radio
+
+```rust
+RadioButton::new()
+    .selected(true)
+    // Automatically:
+    // - Role: Radio
+    // - Focusable: Enabled
+    // - State: Selected/Unselected
+```
+
+## Best Practices
+
+1. **Use semantic components** - Prefer `Button`, `Input`, etc. over custom elements
+2. **Logical focus order** - Structure UI for intuitive tab navigation
+3. **Visible focus indicators** - Show when elements are focused (especially in keyboard mode)
+4. **Keyboard shortcuts** - Support common keyboard patterns (Enter, Space, Escape)
+5. **Test with keyboard** - Navigate your app without a mouse
+6. **Test with screen readers** - Verify announcements make sense
+7. **Meaningful labels** - Use descriptive text for buttons and inputs
+8. **Don't remove focus** - Let users see what's focused
+
+## Testing Accessibility
+
+```rust
+use freya::prelude::*;
+use freya_testing::*;
+
+#[test]
+fn test_keyboard_navigation() {
+    let mut test = launch_test(app);
+    test.sync_and_update();
+
+    // Tab to next element
+    test.press_key(Key::Tab);
+    test.sync_and_update();
+
+    // Activate with Enter
+    test.press_key(Key::Enter);
+    test.sync_and_update();
+
+    // Verify result
+}
+
+#[test]
+fn test_focus_management() {
+    let test = launch_test(app);
+    
+    let platform = Platform::get();
+    let focused_id = platform.focused_accessibility_id.read();
+    
+    assert!(focused_id != ACCESSIBILITY_ROOT_ID);
+}
+```
+
+## Complete Example
+
+Accessible form with keyboard navigation:
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .center()
+        .child(AccessibleForm {})
+}
+
+#[derive(PartialEq)]
+struct AccessibleForm;
+
+impl Component for AccessibleForm {
+    fn render(&self) -> impl IntoElement {
+        let mut name = use_state(|| String::new());
+        let mut email = use_state(|| String::new());
+        let mut newsletter = use_state(|| false);
+        let platform = Platform::get();
+        let nav_mode = platform.navigation_mode.read();
+
+        let show_focus = matches!(*nav_mode, NavigationMode::Keyboard);
+
+        rect()
+            .width(Size::px(400.))
+            .padding(20.)
+            .background((250, 250, 250))
+            .corner_radius(8.)
+            .spacing(16.)
+            .child(
+                label()
+                    .font_size(24.)
+                    .font_weight(FontWeight::Bold)
+                    .text("Sign Up")
+            )
+            .child(
+                rect()
+                    .spacing(8.)
+                    .child(label().text("Name"))
+                    .child(
+                        Input::new()
+                            .value(name.read())
+                            .on_change(move |value| name.set(value))
+                            .border(if show_focus { 
+                                Border::new(2., Color::BLUE) 
+                            } else { 
+                                Border::new(1., Color::from_rgb(200, 200, 200)) 
+                            })
+                    )
+            )
+            .child(
+                rect()
+                    .spacing(8.)
+                    .child(label().text("Email"))
+                    .child(
+                        Input::new()
+                            .value(email.read())
+                            .on_change(move |value| email.set(value))
+                            .border(if show_focus { 
+                                Border::new(2., Color::BLUE) 
+                            } else { 
+                                Border::new(1., Color::from_rgb(200, 200, 200)) 
+                            })
+                    )
+            )
+            .child(
+                rect()
+                    .horizontal()
+                    .spacing(8.)
+                    .child(
+                        Checkbox::new()
+                            .checked(*newsletter.read())
+                            .on_toggle(move |_| newsletter.set(!*newsletter.peek()))
+                    )
+                    .child(label().text("Subscribe to newsletter"))
+            )
+            .child(
+                Button::new()
+                    .on_press(move |_| {
+                        println!("Submitted: {}, {}", name.peek(), email.peek());
+                    })
+                    .child("Submit")
+            )
+            .child(
+                label()
+                    .font_size(12.)
+                    .color(Color::from_rgb(100, 100, 100))
+                    .text("Tip: Use Tab to navigate, Enter to submit")
+            )
+    }
+}
+```
+
+## Limitations
+
+Current accessibility support is foundational. Advanced features coming in future releases:
+
+- Custom ARIA attributes
+- Live regions for dynamic content
+- More granular role definitions
+- Accessibility tree inspection API
+- More focus management controls
+
+## Platform Support
+
+- **Windows** - MSAA/UI Automation
+- **macOS** - Accessibility API
+- **Linux** - AT-SPI
+
+Screen reader support varies by platform and reader software.
+
+## API Reference
+
+See the [API documentation](https://docs.rs/freya-core) for complete accessibility APIs.

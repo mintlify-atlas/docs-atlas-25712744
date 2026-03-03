@@ -1,0 +1,622 @@
+---
+title: Global State with Radio
+description: Fine-grained global state management with channel-based subscriptions
+---
+
+Freya Radio provides a powerful global state management system with fine-grained reactivity. Components only re-render when channels they subscribe to are notified, enabling efficient updates in complex applications.
+
+## Overview
+
+Radio uses three main concepts:
+
+- **RadioStation** - The central hub holding global state
+- **RadioChannel** - Defines subscription channels for specific updates
+- **Radio** - A reactive handle to read/write state for a channel
+
+## Quick Start
+
+```rust
+use freya::prelude::*;
+use freya::radio::*;
+
+#[derive(Default, Clone)]
+struct AppState {
+    count: i32,
+}
+
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
+enum AppChannel {
+    Count,
+}
+
+impl RadioChannel<AppState> for AppChannel {}
+
+fn app() -> impl IntoElement {
+    // Initialize the radio station
+    use_init_radio_station::<AppState, AppChannel>(AppState::default);
+
+    rect().child(Counter {})
+}
+
+#[derive(PartialEq)]
+struct Counter {}
+
+impl Component for Counter {
+    fn render(&self) -> impl IntoElement {
+        // Subscribe to the Count channel
+        let mut radio = use_radio(AppChannel::Count);
+
+        rect()
+            .child(format!("Count: {}", radio.read().count))
+            .child(
+                Button::new()
+                    .on_press(move |_| radio.write().count += 1)
+                    .child("+")
+            )
+    }
+}
+```
+
+## Defining State and Channels
+
+### State Structure
+
+```rust
+#[derive(Default, Clone)]
+struct AppState {
+    count: i32,
+    name: String,
+    items: Vec<String>,
+    user: Option<User>,
+}
+```
+
+State must implement `Clone` and typically `Default`.
+
+### Channel Enum
+
+Channels control granular updates:
+
+```rust
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
+pub enum AppChannel {
+    Count,
+    Name,
+    Items,
+    User,
+    All, // Notifies all subscribers
+}
+
+impl RadioChannel<AppState> for AppChannel {}
+```
+
+Channels must implement:
+- `PartialEq`, `Eq` - For comparison
+- `Clone`, `Copy` - For efficient passing
+- `Debug` - For debugging (optional but recommended)
+- `Hash` - For internal storage
+
+## Initialization
+
+### Local Radio Station
+
+Create a station scoped to the component tree:
+
+```rust
+fn app() -> impl IntoElement {
+    use_init_radio_station::<AppState, AppChannel>(AppState::default);
+    
+    rect().child(MyComponent {})
+}
+```
+
+### Global Radio Station
+
+Share state across multiple windows:
+
+```rust
+fn main() {
+    let radio_station = RadioStation::create_global(AppState::default());
+
+    launch(
+        LaunchConfig::new()
+            .with_window(WindowConfig::new(Window1 { radio_station }))
+            .with_window(WindowConfig::new(Window2 { radio_station }))
+    );
+}
+
+#[derive(PartialEq)]
+struct Window1 {
+    radio_station: RadioStation<AppState, AppChannel>,
+}
+
+impl Component for Window1 {
+    fn render(&self) -> impl IntoElement {
+        use_share_radio(|| self.radio_station);
+        
+        rect().child(Counter {})
+    }
+}
+```
+
+## Using Radio
+
+### Reading State
+
+```rust
+let radio = use_radio::<AppState, AppChannel>(AppChannel::Count);
+
+// Subscribe and read (component re-renders on updates)
+let count = radio.read().count;
+
+// Read without subscription (no re-renders)
+let count = radio.antenna.peek().station.peek().count;
+```
+
+### Writing State
+
+```rust
+let mut radio = use_radio(AppChannel::Count);
+
+// Modify state
+radio.write().count += 1;
+
+// Use a callback
+radio.write_with(|mut state| {
+    state.count += 1;
+    state.name = "Updated".to_string();
+});
+```
+
+### Channel-Specific Writes
+
+Notify different channels:
+
+```rust
+let mut radio = use_radio(AppChannel::Count);
+
+// Notify a different channel
+radio.write_channel(AppChannel::All).count += 1;
+
+// Conditional channel selection
+radio.write_with_channel_selection(|state| {
+    state.count += 1;
+    
+    if state.count > 10 {
+        ChannelSelection::Select(AppChannel::All)
+    } else {
+        ChannelSelection::Current
+    }
+});
+```
+
+### Silent Writes
+
+Update without notifications (use sparingly):
+
+```rust
+let mut radio = use_radio(AppChannel::Count);
+
+// No components will be notified
+radio.write_silently().count += 1;
+```
+
+## Channel Patterns
+
+### Specific Channels
+
+Components only update when their channel changes:
+
+```rust
+#[derive(Default)]
+struct Data {
+    pub lists: Vec<Vec<String>>,
+}
+
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
+pub enum DataChannel {
+    ListCreation,
+    SpecificListItemUpdate(usize),
+}
+
+impl RadioChannel<Data> for DataChannel {}
+
+fn app() -> impl IntoElement {
+    use_init_radio_station::<Data, DataChannel>(Data::default);
+    let mut radio = use_radio::<Data, DataChannel>(DataChannel::ListCreation);
+
+    rect()
+        .child(
+            Button::new()
+                .on_press(move |_| {
+                    radio.write().lists.push(Vec::default());
+                })
+                .child("Add List")
+        )
+        .children(
+            radio
+                .read()
+                .lists
+                .iter()
+                .enumerate()
+                .map(|(i, _)| ListComp(i).into())
+        )
+}
+
+#[derive(PartialEq)]
+struct ListComp(usize);
+
+impl Component for ListComp {
+    fn render(&self) -> impl IntoElement {
+        let list_n = self.0;
+        let mut radio = use_radio::<Data, DataChannel>(
+            DataChannel::SpecificListItemUpdate(list_n)
+        );
+
+        rect()
+            .child(
+                Button::new()
+                    .on_press(move |_| {
+                        radio.write().lists[list_n].push("Item".to_string());
+                    })
+                    .child("Add Item")
+            )
+            .children(
+                radio.read().lists[list_n]
+                    .iter()
+                    .enumerate()
+                    .map(|(i, item)| label().key(i).text(item.clone()).into())
+            )
+    }
+}
+```
+
+### Derived Channels
+
+Notify multiple channels from one write:
+
+```rust
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
+pub enum DataChannel {
+    All,
+    Specific(usize),
+}
+
+impl RadioChannel<Data> for DataChannel {
+    fn derive_channel(self, _data: &Data) -> Vec<Self> {
+        match self {
+            DataChannel::All => vec![DataChannel::All],
+            DataChannel::Specific(id) => vec![
+                DataChannel::All,
+                DataChannel::Specific(id)
+            ],
+        }
+    }
+}
+
+// Writing to Specific(0) notifies both All and Specific(0)
+radio.write_channel(DataChannel::Specific(0)).value = 42;
+```
+
+## Slices
+
+Create focused views of state:
+
+```rust
+let radio = use_radio::<AppState, AppChannel>(AppChannel::Count);
+
+// Read-only slice
+let count_slice = radio.slice_current(|state| &state.count);
+let count = count_slice.read();
+
+// Mutable slice
+let mut count_slice_mut = radio.slice_mut_current(|state| &mut state.count);
+*count_slice_mut.write() += 1;
+
+// Slice with different channel
+let name_slice = radio.slice(AppChannel::Name, |state| &state.name);
+```
+
+Pass slices to child components:
+
+```rust
+#[derive(PartialEq)]
+struct CountDisplay(RadioSlice<AppState, i32, AppChannel>);
+
+impl Component for CountDisplay {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .background((100, 150, 200))
+            .padding(10.)
+            .child(format!("Count: {}", self.0.read()))
+    }
+}
+```
+
+## Reducers
+
+Implement action-based updates:
+
+```rust
+#[derive(Clone)]
+struct CounterState {
+    count: i32,
+}
+
+#[derive(Clone)]
+enum CounterAction {
+    Increment,
+    Decrement,
+    Set(i32),
+}
+
+impl DataReducer for CounterState {
+    type Channel = CounterChannel;
+    type Action = CounterAction;
+
+    fn reduce(&mut self, action: Self::Action) -> ChannelSelection<Self::Channel> {
+        match action {
+            CounterAction::Increment => self.count += 1,
+            CounterAction::Decrement => self.count -= 1,
+            CounterAction::Set(value) => self.count = value,
+        }
+        ChannelSelection::Current
+    }
+}
+
+// Use in components
+let mut radio = use_radio(CounterChannel::Count);
+
+Button::new()
+    .on_press(move |_| {
+        radio.apply(CounterAction::Increment);
+    })
+    .child("+")
+```
+
+## Async Reducers
+
+Handle async operations:
+
+```rust
+impl DataAsyncReducer for AppState {
+    type Channel = AppChannel;
+    type Action = AppAction;
+
+    async fn async_reduce(
+        radio: &mut Radio<Self, Self::Channel>,
+        action: Self::Action,
+    ) -> ChannelSelection<Self::Channel> {
+        match action {
+            AppAction::FetchUser(id) => {
+                // Silent write to show loading
+                radio.write_silently().loading = true;
+                
+                let user = fetch_user(id).await;
+                
+                // Update with result
+                let mut state = radio.write_silently();
+                state.user = Some(user);
+                state.loading = false;
+                drop(state);
+                
+                ChannelSelection::Current
+            }
+        }
+    }
+}
+
+// Use in components
+let mut radio = use_radio(AppChannel::User);
+
+Button::new()
+    .on_press(move |_| {
+        radio.async_apply(AppAction::FetchUser(123));
+    })
+    .child("Load User")
+```
+
+## Channel Selection
+
+Control which channels get notified:
+
+```rust
+pub enum ChannelSelection<Channel> {
+    Current,        // Notify radio's channel
+    Select(Channel), // Notify specific channel
+    Silence,        // Notify no one
+}
+
+let mut radio = use_radio(AppChannel::Count);
+
+radio.write_with_channel_selection(|state| {
+    state.count += 1;
+    
+    if state.count % 10 == 0 {
+        ChannelSelection::Select(AppChannel::All)
+    } else {
+        ChannelSelection::Current
+    }
+});
+```
+
+## Best Practices
+
+1. **Fine-grained channels** - Create specific channels for independent state
+2. **Avoid All channel** - Use only when truly needed
+3. **Minimize writes** - Batch updates when possible
+4. **Use slices** - Pass focused state to child components
+5. **Type safety** - Leverage Rust's type system for state management
+6. **Channel derivation** - Use `derive_channel` for related updates
+7. **Silent writes** - Only for internal state that shouldn't trigger updates
+
+## Complete Example
+
+```rust
+use freya::prelude::*;
+use freya::radio::*;
+
+#[derive(Default, Clone)]
+struct TodoState {
+    todos: Vec<Todo>,
+    filter: Filter,
+}
+
+#[derive(Clone)]
+struct Todo {
+    id: usize,
+    text: String,
+    completed: bool,
+}
+
+#[derive(Clone, Default)]
+enum Filter {
+    #[default]
+    All,
+    Active,
+    Completed,
+}
+
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
+enum TodoChannel {
+    Todos,
+    Filter,
+    All,
+}
+
+impl RadioChannel<TodoState> for TodoChannel {}
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    use_init_radio_station::<TodoState, TodoChannel>(TodoState::default);
+    
+    rect()
+        .expanded()
+        .padding(20.)
+        .child(TodoInput {})
+        .child(TodoList {})
+        .child(FilterBar {})
+}
+
+#[derive(PartialEq)]
+struct TodoInput {}
+
+impl Component for TodoInput {
+    fn render(&self) -> impl IntoElement {
+        let mut radio = use_radio(TodoChannel::Todos);
+        let mut input = use_state(|| String::new());
+
+        rect()
+            .horizontal()
+            .child(
+                Input::new()
+                    .value(input.read())
+                    .on_change(move |value| input.set(value))
+            )
+            .child(
+                Button::new()
+                    .on_press(move |_| {
+                        let text = input.peek().clone();
+                        if !text.is_empty() {
+                            let id = radio.read().todos.len();
+                            radio.write().todos.push(Todo {
+                                id,
+                                text,
+                                completed: false,
+                            });
+                            input.set(String::new());
+                        }
+                    })
+                    .child("Add")
+            )
+    }
+}
+
+#[derive(PartialEq)]
+struct TodoList {}
+
+impl Component for TodoList {
+    fn render(&self) -> impl IntoElement {
+        let radio = use_radio(TodoChannel::Todos);
+        let filter_radio = use_radio(TodoChannel::Filter);
+        
+        let todos = radio.read();
+        let filter = &filter_radio.read().filter;
+        
+        let filtered: Vec<_> = todos.todos
+            .iter()
+            .filter(|todo| match filter {
+                Filter::All => true,
+                Filter::Active => !todo.completed,
+                Filter::Completed => todo.completed,
+            })
+            .cloned()
+            .collect();
+
+        rect()
+            .children(filtered.into_iter().map(|todo| {
+                TodoItem { todo }.into()
+            }))
+    }
+}
+
+#[derive(PartialEq)]
+struct TodoItem {
+    todo: Todo,
+}
+
+impl Component for TodoItem {
+    fn render(&self) -> impl IntoElement {
+        let mut radio = use_radio(TodoChannel::Todos);
+        let id = self.todo.id;
+
+        rect()
+            .horizontal()
+            .child(
+                Checkbox::new()
+                    .checked(self.todo.completed)
+                    .on_toggle(move |_| {
+                        if let Some(todo) = radio.write().todos.iter_mut().find(|t| t.id == id) {
+                            todo.completed = !todo.completed;
+                        }
+                    })
+            )
+            .child(label().text(&self.todo.text))
+    }
+}
+
+#[derive(PartialEq)]
+struct FilterBar {}
+
+impl Component for FilterBar {
+    fn render(&self) -> impl IntoElement {
+        let mut radio = use_radio(TodoChannel::Filter);
+
+        rect()
+            .horizontal()
+            .spacing(8.)
+            .child(
+                Button::new()
+                    .on_press(move |_| radio.write().filter = Filter::All)
+                    .child("All")
+            )
+            .child(
+                Button::new()
+                    .on_press(move |_| radio.write().filter = Filter::Active)
+                    .child("Active")
+            )
+            .child(
+                Button::new()
+                    .on_press(move |_| radio.write().filter = Filter::Completed)
+                    .child("Completed")
+            )
+    }
+}
+```
+
+## API Reference
+
+See the [API documentation](https://docs.rs/freya-radio) for complete details.

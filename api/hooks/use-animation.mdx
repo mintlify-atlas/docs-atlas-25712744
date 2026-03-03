@@ -1,0 +1,371 @@
+---
+title: 'use_animation'
+description: 'Create smooth animations for your UI elements'
+icon: 'film'
+---
+
+Animate your UI elements with smooth transitions. Supports animating numbers, colors, and sequential animations.
+
+## Function Signature
+
+```rust
+pub fn use_animation<Animated: AnimatedValue>(
+    run: impl 'static + FnMut(&mut AnimConfiguration) -> Animated,
+) -> UseAnimation<Animated>
+```
+
+## Parameters
+
+<ParamField path="run" type="impl FnMut(&mut AnimConfiguration) -> Animated" required>
+  A closure that receives an `AnimConfiguration` for setup and returns an animated value (e.g., `AnimNum`, `AnimColor`, or tuples of animated values).
+</ParamField>
+
+## Return Type
+
+Returns a `UseAnimation<Animated>` which provides methods to control the animation and access its current value.
+
+## Supported Animation Types
+
+- **`AnimNum`**: Animate numeric values (f32, f64)
+- **`AnimColor`**: Animate colors with smooth transitions
+- **`AnimSequential`**: Run multiple animations in sequence
+- **Tuples**: Animate multiple values simultaneously (up to 12 values)
+- **Custom**: Implement `AnimatedValue` trait for custom types
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+use freya::animation::*;
+
+fn app() -> impl IntoElement {
+    let mut animation = use_animation(|conf| {
+        conf.on_creation(OnCreation::Run);
+        AnimNum::new(0., 100.).time(500)
+    });
+
+    let width = animation.get().value();
+
+    rect()
+        .width(Size::px(width))
+        .height(Size::px(100.))
+        .background(Color::BLUE)
+}
+```
+
+## Animation Configuration
+
+### `on_creation` - Initial behavior
+
+Control what happens when the animation is created:
+
+```rust
+let animation = use_animation(|conf| {
+    conf.on_creation(OnCreation::Run);      // Start immediately
+    // conf.on_creation(OnCreation::Finish); // Jump to end
+    // conf.on_creation(OnCreation::Nothing); // Do nothing (default)
+    
+    AnimNum::new(0., 100.).time(500)
+});
+```
+
+### `on_finish` - Loop behavior
+
+Control what happens when the animation completes:
+
+```rust
+let animation = use_animation(|conf| {
+    conf.on_finish(OnFinish::reverse());              // Reverse direction
+    // conf.on_finish(OnFinish::reverse_with_delay(Duration::from_millis(500)));
+    // conf.on_finish(OnFinish::restart());           // Restart from beginning
+    // conf.on_finish(OnFinish::restart_with_delay(Duration::from_millis(500)));
+    // conf.on_finish(OnFinish::nothing());           // Stop (default)
+    
+    AnimNum::new(0., 100.).time(500)
+});
+```
+
+### `on_change` - Dependency behavior
+
+Control what happens when dependencies change:
+
+```rust
+let animation = use_animation(|conf| {
+    conf.on_change(OnChange::Rerun);   // Rerun the animation
+    // conf.on_change(OnChange::Reset);  // Reset to initial state (default)
+    // conf.on_change(OnChange::Finish); // Jump to final state
+    // conf.on_change(OnChange::Nothing); // Do nothing
+    
+    AnimNum::new(0., 100.).time(500)
+});
+```
+
+## Controlling Animations
+
+### Start and reverse
+
+```rust
+let mut animation = use_animation(|_| AnimNum::new(0., 100.).time(500));
+
+// Start the animation forward
+animation.start();
+
+// Start the animation in reverse
+animation.reverse();
+```
+
+### Reset and finish
+
+```rust
+let mut animation = use_animation(|_| AnimNum::new(0., 100.).time(500));
+
+// Reset to initial state
+animation.reset();
+
+// Jump to final state
+animation.finish();
+```
+
+### Check animation status
+
+```rust
+let animation = use_animation(|_| AnimNum::new(0., 100.).time(500));
+
+let is_running = animation.is_running();
+let has_started = animation.has_run_yet();
+let direction = animation.direction(); // Forward or Reverse
+```
+
+## Examples
+
+### Animating width
+
+```rust
+use freya::prelude::*;
+use freya::animation::*;
+
+fn app() -> impl IntoElement {
+    let mut animation = use_animation(|_| AnimNum::new(0., 100.).time(400));
+
+    let width = animation.get().value();
+
+    rect()
+        .child(
+            Button::new()
+                .on_press(move |_| animation.start())
+                .child("Start")
+        )
+        .child(
+            rect()
+                .width(Size::px(width))
+                .height(Size::px(50.))
+                .background(Color::BLUE)
+        )
+}
+```
+
+### Animating colors
+
+```rust
+use freya::prelude::*;
+use freya::animation::*;
+
+fn app() -> impl IntoElement {
+    let mut animation = use_animation(|_| {
+        AnimColor::new(Color::RED, Color::BLUE).time(500)
+    });
+
+    let color = animation.get().value();
+
+    rect()
+        .background(color)
+        .expanded()
+        .child(
+            Button::new()
+                .on_press(move |_| animation.start())
+                .child("Animate")
+        )
+}
+```
+
+### Multiple animations
+
+```rust
+use freya::prelude::*;
+use freya::animation::*;
+
+fn app() -> impl IntoElement {
+    let mut animation = use_animation(|conf| {
+        conf.on_creation(OnCreation::Run);
+        (
+            AnimNum::new(0., 100.).time(500),
+            AnimColor::new(Color::RED, Color::BLUE).time(500),
+        )
+    });
+
+    let (width, color) = animation.get().value();
+
+    rect()
+        .width(Size::px(width))
+        .height(Size::px(100.))
+        .background(color)
+}
+```
+
+### Infinite loop animation
+
+```rust
+use freya::prelude::*;
+use freya::animation::*;
+
+fn app() -> impl IntoElement {
+    let animation = use_animation(|conf| {
+        conf.on_creation(OnCreation::Run);
+        conf.on_finish(OnFinish::reverse()); // Loop back and forth
+        
+        AnimNum::new(0., 100.).time(1000)
+    });
+
+    let width = animation.get().value();
+
+    rect()
+        .width(Size::px(width))
+        .height(Size::px(100.))
+        .background(Color::BLUE)
+}
+```
+
+### Sequential animations
+
+```rust
+use freya::prelude::*;
+use freya::animation::*;
+
+fn app() -> impl IntoElement {
+    let mut animation = use_animation(|_| {
+        AnimSequential::new()
+            .add(AnimNum::new(0., 100.).time(300))
+            .add(AnimNum::new(100., 200.).time(300))
+            .add(AnimNum::new(200., 0.).time(300))
+    });
+
+    rect()
+}
+```
+
+### Reactive animations with dependencies
+
+```rust
+use freya::prelude::*;
+use freya::animation::*;
+
+fn app() -> impl IntoElement {
+    let target = use_state(|| 100.);
+
+    // Animation reruns when target changes
+    let animation = use_animation(move |conf| {
+        conf.on_change(OnChange::Rerun);
+        AnimNum::new(0., target()).time(500)
+    });
+
+    let width = animation.get().value();
+
+    rect()
+        .width(Size::px(width))
+        .height(Size::px(100.))
+        .background(Color::BLUE)
+}
+```
+
+### Transition animations
+
+```rust
+use freya::prelude::*;
+use freya::animation::*;
+
+fn app() -> impl IntoElement {
+    let mut color = use_state(|| Color::RED);
+    
+    // Automatically animates from previous to current color
+    let animation = use_animation_transition(
+        color,
+        |from: Color, to| AnimColor::new(from, to).time(500)
+    );
+
+    rect()
+        .background(&*animation.read())
+        .expanded()
+        .child(
+            Button::new()
+                .on_press(move |_| color.set(Color::BLUE))
+                .child("Change Color")
+        )
+}
+```
+
+## Easing Functions
+
+Control the animation timing curve:
+
+```rust
+use freya::animation::*;
+
+let animation = use_animation(|_| {
+    AnimNum::new(0., 100.)
+        .time(500)
+        .ease(Ease::Out)      // Start fast, end slow (default)
+        // .ease(Ease::In)     // Start slow, end fast
+        // .ease(Ease::InOut)  // Slow at both ends
+});
+```
+
+## Related Hooks
+
+- **`use_animation_with_dependencies`**: Pass explicit dependencies instead of reactive tracking
+- **`use_animation_transition`**: Automatically animate between old and new values
+
+## When to Use
+
+Use `use_animation` for:
+- Smooth UI transitions
+- Visual feedback
+- Loading indicators
+- Hover effects
+- Page transitions
+
+## Performance Notes
+
+- Animations run on the main thread and request redraws automatically
+- Keep animations under 1 second for best user experience
+- Avoid animating too many elements simultaneously
+- Use `on_finish(OnFinish::nothing())` to stop animations when not needed
+
+## Common Patterns
+
+### Pulse effect
+
+```rust
+let animation = use_animation(|conf| {
+    conf.on_creation(OnCreation::Run);
+    conf.on_finish(OnFinish::reverse());
+    AnimNum::new(1.0, 1.2).time(800)
+});
+```
+
+### Fade in on mount
+
+```rust
+let animation = use_animation(|conf| {
+    conf.on_creation(OnCreation::Run);
+    AnimNum::new(0.0, 1.0).time(300)
+});
+```
+
+### Slide in from left
+
+```rust
+let animation = use_animation(|conf| {
+    conf.on_creation(OnCreation::Run);
+    AnimNum::new(-100., 0.).time(400)
+});
+```

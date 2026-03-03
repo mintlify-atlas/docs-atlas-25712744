@@ -1,0 +1,661 @@
+---
+title: Event Handling
+description: Handle user interactions and events in Freya applications
+---
+
+## Overview
+
+Events in Freya allow your components to respond to user interactions like mouse clicks, keyboard input, hovering, and more. Event handlers are functions attached to elements that run when specific events occur.
+
+<Note>
+  Event handlers in Freya are similar to event listeners in HTML/JavaScript - they let you make your UI interactive.
+</Note>
+
+## Basic Event Handling
+
+Attach event handlers using `.on_*` methods:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .on_mouse_up(|_| {
+            println!("Clicked!");
+        })
+        .child("Click me")
+}
+```
+
+## Mouse Events
+
+### Click Events
+
+<Tabs>
+  <Tab title="on_mouse_up">
+    Fires when a mouse button is released:
+    
+    ```rust
+    rect()
+        .on_mouse_up(|_| {
+            println!("Mouse button released");
+        })
+        .child("Click me")
+    ```
+  </Tab>
+  <Tab title="on_mouse_down">
+    Fires when a mouse button is pressed:
+    
+    ```rust
+    rect()
+        .on_mouse_down(|_| {
+            println!("Mouse button pressed");
+        })
+        .child("Press me")
+    ```
+  </Tab>
+  <Tab title="on_press">
+    Convenient alternative to `on_mouse_up`:
+    
+    ```rust
+    rect()
+        .on_press(|_| {
+            println!("Clicked!");
+        })
+        .child("Click me")
+    ```
+  </Tab>
+</Tabs>
+
+### Hover Events
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct HoverableBox;
+
+impl Component for HoverableBox {
+    fn render(&self) -> impl IntoElement {
+        let mut hover = use_state(|| false);
+
+        rect()
+            .background(if *hover.read() {
+                (100, 100, 255)
+            } else {
+                (200, 200, 200)
+            })
+            .on_mouse_over(move |_| hover.set(true))
+            .on_mouse_leave(move |_| hover.set(false))
+            .padding(Gaps::new_all(20.))
+            .child("Hover over me")
+    }
+}
+```
+
+### Mouse Movement
+
+Track mouse position:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct MouseTracker;
+
+impl Component for MouseTracker {
+    fn render(&self) -> impl IntoElement {
+        let mut pos = use_state(|| (0.0, 0.0));
+
+        rect()
+            .width(Size::fill())
+            .height(Size::fill())
+            .on_mouse_move(move |e: Event<MouseEventData>| {
+                pos.set((
+                    e.element_location.x,
+                    e.element_location.y
+                ));
+            })
+            .child(format!("Mouse: {:.0}, {:.0}", pos.read().0, pos.read().1))
+    }
+}
+```
+
+### Mouse Buttons
+
+Detect which button was clicked:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .on_mouse_up(|e: Event<MouseEventData>| {
+            match e.button {
+                Some(MouseButton::Left) => println!("Left click"),
+                Some(MouseButton::Right) => println!("Right click"),
+                Some(MouseButton::Middle) => println!("Middle click"),
+                _ => {}
+            }
+        })
+        .child("Click with any button")
+}
+```
+
+## Keyboard Events
+
+### Key Press
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct KeyListener;
+
+impl Component for KeyListener {
+    fn render(&self) -> impl IntoElement {
+        let mut text = use_state(|| String::new());
+
+        rect()
+            .focusable(true)
+            .on_key_down(move |e: Event<KeyboardEventData>| {
+                if let Some(character) = e.try_as_str() {
+                    text.write().push_str(character);
+                }
+            })
+            .child(text.read().clone())
+    }
+}
+```
+
+### Keyboard Shortcuts
+
+Handle specific keys and modifiers:
+
+```rust
+use freya::prelude::*;
+use keyboard_types::{Code, Key, Modifiers};
+
+#[derive(PartialEq)]
+struct ShortcutHandler;
+
+impl Component for ShortcutHandler {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .focusable(true)
+            .on_key_down(move |e: Event<KeyboardEventData>| {
+                // Check for Ctrl+S
+                if e.modifiers.contains(Modifiers::CONTROL) 
+                    && e.key == Key::Character("s".into()) {
+                    println!("Save shortcut!");
+                    e.prevent_default();
+                }
+                
+                // Check for Escape
+                if e.key == Key::Escape {
+                    println!("Escape pressed!");
+                }
+                
+                // Check for Enter
+                if e.code == Code::Enter {
+                    println!("Enter pressed!");
+                }
+            })
+            .child("Press Ctrl+S or Escape")
+    }
+}
+```
+
+## Scroll Events
+
+### Mouse Wheel
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct ScrollTracker;
+
+impl Component for ScrollTracker {
+    fn render(&self) -> impl IntoElement {
+        let mut scroll = use_state(|| 0.0);
+
+        rect()
+            .height(Size::px(200.))
+            .on_wheel(move |e: Event<WheelEventData>| {
+                *scroll.write() += e.delta_y;
+            })
+            .child(format!("Scroll: {:.0}", scroll.read()))
+    }
+}
+```
+
+## Focus Events
+
+Handle focus changes:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct FocusableInput;
+
+impl Component for FocusableInput {
+    fn render(&self) -> impl IntoElement {
+        let mut focused = use_state(|| false);
+
+        rect()
+            .focusable(true)
+            .background(if *focused.read() {
+                (200, 200, 255)
+            } else {
+                (240, 240, 240)
+            })
+            .border(Border::all((
+                2.,
+                if *focused.read() {
+                    (100, 100, 255, 255)
+                } else {
+                    (200, 200, 200, 255)
+                }
+            )))
+            .on_focus(move |_| focused.set(true))
+            .on_blur(move |_| focused.set(false))
+            .padding(Gaps::new_all(12.))
+            .child("Click to focus")
+    }
+}
+```
+
+## Event Object
+
+All event handlers receive an `Event<T>` object:
+
+```rust
+use freya::prelude::*;
+
+rect()
+    .on_mouse_up(|e: Event<MouseEventData>| {
+        // Access event data
+        let x = e.global_location.x;
+        let y = e.element_location.y;
+        let button = e.button;
+        
+        // Control event behavior
+        e.stop_propagation();
+        e.prevent_default();
+    })
+```
+
+### Event Data Types
+
+<CardGroup cols={2}>
+  <Card title="MouseEventData">
+    ```rust
+    pub struct MouseEventData {
+        pub global_location: CursorPoint,
+        pub element_location: CursorPoint,
+        pub button: Option<MouseButton>,
+    }
+    ```
+  </Card>
+  <Card title="KeyboardEventData">
+    ```rust
+    pub struct KeyboardEventData {
+        pub key: Key,
+        pub code: Code,
+        pub modifiers: Modifiers,
+    }
+    ```
+  </Card>
+  <Card title="WheelEventData">
+    ```rust
+    pub struct WheelEventData {
+        pub delta_x: f64,
+        pub delta_y: f64,
+    }
+    ```
+  </Card>
+  <Card title="SizedEventData">
+    ```rust
+    pub struct SizedEventData {
+        pub area: Area,
+        pub visible_area: Area,
+        pub inner_sizes: Size2D,
+    }
+    ```
+  </Card>
+</CardGroup>
+
+## Event Propagation
+
+By default, events propagate up the component tree. You can stop this:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .on_press(|_| println!("Parent clicked"))
+        .child(
+            rect()
+                .on_press(|e: Event<PressEventData>| {
+                    e.stop_propagation(); // Prevent parent handler
+                    println!("Child clicked");
+                })
+                .child("Click me")
+        )
+}
+```
+
+### Propagation Example
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .width(Size::px(200.))
+        .height(Size::px(200.))
+        .background(Color::RED)
+        .on_press(|_| println!("Outer clicked"))
+        .child(
+            rect()
+                .width(Size::px(150.))
+                .height(Size::px(150.))
+                .background(Color::BLUE)
+                .on_press(|_| println!("Middle clicked"))
+                .child(
+                    rect()
+                        .width(Size::px(100.))
+                        .height(Size::px(100.))
+                        .background(Color::GREEN)
+                        .on_press(|e: Event<PressEventData>| {
+                            e.stop_propagation();
+                            println!("Inner clicked")
+                        })
+                )
+        )
+}
+// Clicking green box prints: "Inner clicked"
+// Clicking blue box prints: "Middle clicked", "Outer clicked"
+// Clicking red box prints: "Outer clicked"
+```
+
+## File Drop Events
+
+Handle drag-and-drop files:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct FileDropZone;
+
+impl Component for FileDropZone {
+    fn render(&self) -> impl IntoElement {
+        let mut files = use_state(|| Vec::new());
+
+        rect()
+            .width(Size::px(300.))
+            .height(Size::px(200.))
+            .background((240, 240, 240))
+            .border(Border::all((2., (200, 200, 200, 255))))
+            .on_file_drop(move |e: Event<FileDropEventData>| {
+                files.write().extend(e.files.clone());
+            })
+            .center()
+            .child(
+                if files.read().is_empty() {
+                    "Drop files here"
+                } else {
+                    &format!("{} files dropped", files.read().len())
+                }
+            )
+    }
+}
+```
+
+## Resize Events
+
+React to element size changes:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct ResizeTracker;
+
+impl Component for ResizeTracker {
+    fn render(&self) -> impl IntoElement {
+        let mut size = use_state(|| (0.0, 0.0));
+
+        rect()
+            .width(Size::fill())
+            .height(Size::fill())
+            .on_sized(move |e: Event<SizedEventData>| {
+                size.set((
+                    e.visible_area.width(),
+                    e.visible_area.height()
+                ));
+            })
+            .child(format!(
+                "Size: {:.0}x{:.0}",
+                size.read().0,
+                size.read().1
+            ))
+    }
+}
+```
+
+## Complete Interactive Example
+
+Here's a complete example combining multiple event types:
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .center()
+        .child(InteractiveBox {})
+}
+
+#[derive(PartialEq)]
+struct InteractiveBox;
+
+impl Component for InteractiveBox {
+    fn render(&self) -> impl IntoElement {
+        let mut hover = use_state(|| false);
+        let mut pressed = use_state(|| false);
+        let mut clicks = use_state(|| 0);
+        let mut pos = use_state(|| (0.0, 0.0));
+
+        rect()
+            .width(Size::px(200.))
+            .height(Size::px(200.))
+            .background(
+                if *pressed.read() {
+                    (255, 100, 100)
+                } else if *hover.read() {
+                    (100, 100, 255)
+                } else {
+                    (200, 200, 200)
+                }
+            )
+            .corner_radius(CornerRadius::new(12.))
+            .center()
+            .focusable(true)
+            // Mouse events
+            .on_mouse_over(move |_| hover.set(true))
+            .on_mouse_leave(move |_| hover.set(false))
+            .on_mouse_down(move |_| pressed.set(true))
+            .on_mouse_up(move |_| {
+                pressed.set(false);
+                *clicks.write() += 1;
+            })
+            .on_mouse_move(move |e: Event<MouseEventData>| {
+                pos.set((
+                    e.element_location.x,
+                    e.element_location.y
+                ));
+            })
+            // Keyboard events
+            .on_key_down(move |e: Event<KeyboardEventData>| {
+                if e.key == keyboard_types::Key::Character("r".into()) {
+                    clicks.set(0);
+                }
+            })
+            .child(
+                rect()
+                    .child(format!("Clicks: {}", clicks.read()))
+                    .child(format!(
+                        "Mouse: {:.0}, {:.0}",
+                        pos.read().0,
+                        pos.read().1
+                    ))
+                    .child("Press 'r' to reset")
+            )
+    }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use move closures for state">
+    Always use `move` when capturing state in event handlers:
+    
+    ```rust
+    let mut count = use_state(|| 0);
+    
+    rect().on_mouse_up(move |_| {  // ✅ move keyword
+        *count.write() += 1;
+    })
+    ```
+  </Accordion>
+
+  <Accordion title="Prevent default when needed">
+    Stop browser-like behaviors:
+    
+    ```rust
+    rect()
+        .on_key_down(move |e: Event<KeyboardEventData>| {
+            if e.key == Key::Tab {
+                e.prevent_default(); // Don't change focus
+            }
+        })
+    ```
+  </Accordion>
+
+  <Accordion title="Make interactive elements focusable">
+    Elements that handle keyboard events should be focusable:
+    
+    ```rust
+    rect()
+        .focusable(true)  // ✅ Required for keyboard events
+        .on_key_down(|e| { /* ... */ })
+    ```
+  </Accordion>
+
+  <Accordion title="Batch state updates">
+    Multiple state updates in one handler are efficient:
+    
+    ```rust
+    rect().on_mouse_up(move |_| {
+        *count.write() += 1;
+        name.set("Updated".to_string());
+        // Both updates happen together
+    })
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Common Patterns
+
+### Double Click
+
+```rust
+use freya::prelude::*;
+use std::time::Instant;
+
+#[derive(PartialEq)]
+struct DoubleClickDetector;
+
+impl Component for DoubleClickDetector {
+    fn render(&self) -> impl IntoElement {
+        let mut last_click = use_state(|| None::<Instant>);
+
+        rect()
+            .on_mouse_up(move |_| {
+                let now = Instant::now();
+                
+                if let Some(last) = *last_click.read() {
+                    if now.duration_since(last).as_millis() < 300 {
+                        println!("Double click!");
+                        last_click.set(None);
+                        return;
+                    }
+                }
+                
+                last_click.set(Some(now));
+            })
+            .child("Double click me")
+    }
+}
+```
+
+### Long Press
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct LongPressButton;
+
+impl Component for LongPressButton {
+    fn render(&self) -> impl IntoElement {
+        let mut pressing = use_state(|| false);
+
+        use_effect(move || {
+            if *pressing.read() {
+                // Start timer
+                let handle = spawn_task(move || async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    if *pressing.read() {
+                        println!("Long press!");
+                    }
+                });
+            }
+        });
+
+        rect()
+            .on_mouse_down(move |_| pressing.set(true))
+            .on_mouse_up(move |_| pressing.set(false))
+            .on_mouse_leave(move |_| pressing.set(false))
+            .child("Press and hold")
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Components" icon="puzzle-piece" href="/concepts/components">
+    Build interactive components
+  </Card>
+  <Card title="State Management" icon="database" href="/concepts/state-management">
+    Manage component state
+  </Card>
+  <Card title="Hooks" icon="link" href="/concepts/hooks">
+    Use lifecycle hooks
+  </Card>
+  <Card title="Built-in Components" icon="boxes" href="/api-reference/components">
+    Explore pre-built interactive components
+  </Card>
+</CardGroup>

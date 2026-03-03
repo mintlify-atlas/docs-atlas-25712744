@@ -1,0 +1,280 @@
+---
+title: Canvas
+description: Custom drawing area with direct Skia rendering access
+---
+
+The `Canvas` component provides low-level access to Skia's rendering capabilities, allowing you to draw custom graphics directly.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    canvas(|ctx: &mut RenderContext| {
+        let canvas = ctx.canvas;
+        
+        // Draw a circle
+        let mut paint = Paint::default();
+        paint.set_color(Color::from_rgb(100, 150, 200));
+        canvas.draw_circle((50., 50.), 40., &paint);
+    })
+    .width(Size::px(200.))
+    .height(Size::px(200.))
+}
+```
+
+## RenderContext
+
+The render callback receives a `RenderContext` with:
+
+```rust
+pub struct RenderContext {
+    pub canvas: &Canvas,          // Skia canvas for drawing
+    pub layout_node: &LayoutNode, // Layout information
+    pub scale_factor: f64,        // Display scale factor
+    // ... other fields
+}
+```
+
+## Properties
+
+<ParamField path="on_render" type="RenderCallback" required>
+  Callback that receives `&mut RenderContext` for custom rendering
+</ParamField>
+
+Plus all standard layout properties:
+- `width()`, `height()`
+- `background()`, `corner_radius()`
+- Event handlers via `EventHandlersExt`
+
+## Drawing Shapes
+
+### Circles
+
+```rust
+canvas(|ctx| {
+    let mut paint = Paint::default();
+    paint.set_color(Color::from_rgb(255, 100, 100));
+    paint.set_anti_alias(true);
+    
+    ctx.canvas.draw_circle((100., 100.), 50., &paint);
+})
+```
+
+### Rectangles
+
+```rust
+canvas(|ctx| {
+    let rect = SkRect::from_xywh(50., 50., 100., 80.);
+    let mut paint = Paint::default();
+    paint.set_color(Color::from_rgb(100, 255, 100));
+    
+    ctx.canvas.draw_rect(rect, &paint);
+})
+```
+
+### Lines
+
+```rust
+canvas(|ctx| {
+    let mut paint = Paint::default();
+    paint.set_color(Color::BLACK);
+    paint.set_stroke_width(2.);
+    paint.set_style(PaintStyle::Stroke);
+    
+    ctx.canvas.draw_line((10., 10.), (190., 190.), &paint);
+})
+```
+
+### Paths
+
+```rust
+canvas(|ctx| {
+    let mut path = Path::new();
+    path.move_to((50., 50.));
+    path.line_to((150., 50.));
+    path.line_to((100., 150.));
+    path.close();
+    
+    let mut paint = Paint::default();
+    paint.set_color(Color::from_rgb(100, 100, 255));
+    
+    ctx.canvas.draw_path(&path, &paint);
+})
+```
+
+## Text Rendering
+
+```rust
+canvas(|ctx| {
+    let mut paint = Paint::default();
+    paint.set_color(Color::BLACK);
+    
+    let font = Font::default();
+    
+    ctx.canvas.draw_str("Hello, Canvas!", (50., 50.), &font, &paint);
+})
+```
+
+## Paint Styles
+
+### Fill
+
+```rust
+let mut paint = Paint::default();
+paint.set_style(PaintStyle::Fill);
+paint.set_color(Color::from_rgb(200, 100, 100));
+```
+
+### Stroke
+
+```rust
+let mut paint = Paint::default();
+paint.set_style(PaintStyle::Stroke);
+paint.set_stroke_width(3.);
+paint.set_color(Color::from_rgb(100, 100, 200));
+```
+
+### Gradients
+
+```rust
+let colors = [Color::RED, Color::BLUE];
+let positions = [0.0, 1.0];
+
+let shader = Shader::linear_gradient(
+    ((0., 0.), (200., 200.)),
+    colors,
+    positions,
+    TileMode::Clamp,
+);
+
+let mut paint = Paint::default();
+paint.set_shader(shader);
+```
+
+## Complete Example
+
+Interactive drawing canvas:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut points = use_state(|| Vec::<(f32, f32)>::new());
+    
+    canvas(move |ctx: &mut RenderContext| {
+        let canvas = ctx.canvas;
+        
+        // Draw all points
+        let mut paint = Paint::default();
+        paint.set_color(Color::from_rgb(100, 100, 255));
+        paint.set_anti_alias(true);
+        
+        for &(x, y) in points.read().iter() {
+            canvas.draw_circle((x, y), 5., &paint);
+        }
+        
+        // Draw lines between points
+        if points.read().len() > 1 {
+            paint.set_style(PaintStyle::Stroke);
+            paint.set_stroke_width(2.);
+            
+            let mut path = Path::new();
+            if let Some(&first) = points.read().first() {
+                path.move_to(first);
+                for &point in points.read().iter().skip(1) {
+                    path.line_to(point);
+                }
+            }
+            
+            canvas.draw_path(&path, &paint);
+        }
+    })
+    .width(Size::px(400.))
+    .height(Size::px(400.))
+    .background(Color::from_rgb(250, 250, 250))
+    .on_pointer_down(move |e: Event<PointerEventData>| {
+        let location = e.element_location();
+        points.write().push((location.x as f32, location.y as f32));
+    })
+}
+```
+
+## Animation
+
+Combine with animation hooks:
+
+```rust
+let animation = use_animation(|conf| {
+    AnimNum::new(0., 360.)
+        .time(2000)
+        .ease(Ease::InOut)
+        .function(Function::Linear)
+});
+
+canvas(move |ctx| {
+    let angle = animation.read().value();
+    
+    ctx.canvas.save();
+    ctx.canvas.translate((100., 100.));
+    ctx.canvas.rotate(angle, None);
+    
+    let mut paint = Paint::default();
+    paint.set_color(Color::from_rgb(255, 100, 100));
+    
+    let rect = SkRect::from_xywh(-25., -25., 50., 50.);
+    ctx.canvas.draw_rect(rect, &paint);
+    
+    ctx.canvas.restore();
+})
+```
+
+## Coordinate System
+
+The canvas coordinate system:
+- Origin (0, 0) is at the top-left of the canvas
+- X increases to the right
+- Y increases downward
+- Automatically scaled by `scale_factor` for high-DPI displays
+
+## Performance Tips
+
+1. **Minimize allocations**: Reuse `Paint` and `Path` objects
+2. **Use save/restore**: Isolate transform states
+3. **Anti-aliasing**: Only enable when needed
+4. **Batch draws**: Group similar drawing operations
+
+## Event Handling
+
+Canvas supports all standard event handlers:
+
+```rust
+canvas(|ctx| { /* drawing */ })
+    .on_pointer_down(|e| { /* handle click */ })
+    .on_pointer_move(|e| { /* handle mouse move */ })
+    .on_pointer_up(|e| { /* handle release */ })
+```
+
+## Layout Integration
+
+Access layout information in the render callback:
+
+```rust
+canvas(move |ctx: &mut RenderContext| {
+    let area = ctx.layout_node.visible_area();
+    let width = area.width();
+    let height = area.height();
+    
+    // Draw centered circle
+    ctx.canvas.draw_circle(
+        (width / 2., height / 2.),
+        width.min(height) / 2.,
+        &paint,
+    );
+})
+```
+
+## Source
+
+View the full implementation: [canvas.rs](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/canvas.rs)

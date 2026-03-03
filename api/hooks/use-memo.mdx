@@ -1,0 +1,298 @@
+---
+title: 'use_memo'
+description: 'Cache expensive computations that depend on reactive values'
+icon: 'memory'
+---
+
+Creates a memoized value that only recomputes when its dependencies change. Use this to optimize expensive calculations.
+
+## Function Signature
+
+```rust
+pub fn use_memo<T: 'static + PartialEq>(callback: impl FnMut() -> T + 'static) -> Memo<T>
+```
+
+## Parameters
+
+<ParamField path="callback" type="impl FnMut() -> T + 'static" required>
+  A closure that computes and returns a value. The closure is called once initially and then recomputes whenever any reactive values read inside it change.
+</ParamField>
+
+## Type Requirements
+
+- `T` must be `'static` (no borrowed references)
+- `T` must implement `PartialEq` (for change detection)
+
+## Return Type
+
+Returns a `Memo<T>` that implements `Copy`. The memoized value is cached and only recomputed when dependencies change.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let count = use_state(|| 0);
+
+    let doubled = use_memo(move || {
+        let value = *count.read();
+        value * 2  // Only recomputes when count changes
+    });
+
+    rect()
+        .child(format!("Count: {}", count.read()))
+        .child(format!("Doubled: {}", doubled.read()))
+}
+```
+
+## How It Works
+
+1. The callback runs once during component initialization
+2. Any `State` values accessed via `.read()` inside the callback are tracked as dependencies
+3. The result is cached
+4. When any dependency changes, the callback runs again
+5. If the new value equals the old value (via `PartialEq`), no re-render is triggered
+
+## Reading Memoized Values
+
+### Using `read()`
+
+```rust
+let expensive_value = use_memo(move || {
+    expensive_computation()
+});
+
+// Subscribe to changes and get the value
+let result = expensive_value.read();
+```
+
+### Using `peek()`
+
+Read without subscribing to changes:
+
+```rust
+let cached_value = use_memo(move || {
+    compute_something()
+});
+
+// Read without subscribing
+let result = cached_value.peek();
+```
+
+### Shorthand for Copy types
+
+For `Copy` types, you can call the memo as a function:
+
+```rust
+let doubled = use_memo(move || count() * 2);
+
+// These are equivalent:
+let value1 = doubled.read().clone();
+let value2 = doubled(); // Only works for Copy types
+```
+
+## Examples
+
+### Expensive computation
+
+```rust
+use freya::prelude::*;
+
+fn fibonacci(n: u32) -> u32 {
+    match n {
+        0 => 0,
+        1 => 1,
+        n => fibonacci(n - 1) + fibonacci(n - 2),
+    }
+}
+
+fn app() -> impl IntoElement {
+    let input = use_state(|| 10);
+
+    // Only recomputes when input changes
+    let result = use_memo(move || {
+        fibonacci(*input.read())
+    });
+
+    rect()
+        .child(format!("Input: {}", input.read()))
+        .child(format!("Fibonacci: {}", result.read()))
+}
+```
+
+### Filtering a list
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let items = use_state(|| vec!["apple", "banana", "cherry", "date"]);
+    let search = use_state(String::new);
+
+    // Only refilters when items or search changes
+    let filtered = use_memo(move || {
+        let query = search.read().to_lowercase();
+        items
+            .read()
+            .iter()
+            .filter(|item| item.to_lowercase().contains(&query))
+            .copied()
+            .collect::<Vec<_>>()
+    });
+
+    rect()
+        .child(Input::new().value(search))
+        .children(filtered.read().iter().map(|item| {
+            rect().child(*item)
+        }))
+}
+```
+
+### Multiple dependencies
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let width = use_state(|| 100.0);
+    let height = use_state(|| 50.0);
+
+    // Recomputes when either width or height changes
+    let area = use_memo(move || {
+        *width.read() * *height.read()
+    });
+
+    rect()
+        .child(format!("Area: {}", area.read()))
+}
+```
+
+### Complex data transformation
+
+```rust
+use freya::prelude::*;
+use std::collections::HashMap;
+
+fn app() -> impl IntoElement {
+    let users = use_state(|| vec![
+        ("alice", 25),
+        ("bob", 30),
+        ("charlie", 25),
+    ]);
+
+    // Convert to grouped HashMap only when users change
+    let grouped_by_age = use_memo(move || {
+        let mut map: HashMap<i32, Vec<&str>> = HashMap::new();
+        for (name, age) in users.read().iter() {
+            map.entry(*age).or_insert_with(Vec::new).push(*name);
+        }
+        map
+    });
+
+    rect()
+}
+```
+
+## When to Use
+
+Use `use_memo` when:
+- You have expensive computations that depend on reactive values
+- You're transforming large datasets
+- You want to avoid redundant calculations on every render
+- The computation result doesn't change often
+
+**Don't use it for:**
+- Simple calculations (direct computation is often faster)
+- Values that change on every render
+- One-time computations that don't depend on reactive state
+
+## Comparison with `use_side_effect`
+
+| Feature | `use_memo` | `use_side_effect` |
+|---------|------------|-------------------|
+| Purpose | Cached computation | Side effects |
+| Returns value | Yes | No |
+| Use case | Expensive calculations | I/O, logging, async |
+| When to use | Derive values | Trigger actions |
+
+## Performance Considerations
+
+### When memoization helps
+
+```rust
+// Good: Expensive computation
+let result = use_memo(move || {
+    expensive_algorithm(*input.read())
+});
+
+// Good: Large data transformation
+let processed = use_memo(move || {
+    large_dataset.read()
+        .iter()
+        .filter(|x| x.is_active)
+        .collect()
+});
+```
+
+### When memoization hurts
+
+```rust
+// Bad: Simple arithmetic (just compute directly)
+let doubled = use_memo(move || count() * 2);
+// Better: let doubled = count() * 2;
+
+// Bad: Changes every render
+let timestamp = use_memo(|| SystemTime::now());
+// Better: use_state or compute directly
+```
+
+## Change Detection
+
+Memoized values use `PartialEq` to detect changes. Only updates that produce a different value trigger re-renders:
+
+```rust
+let count = use_state(|| 5);
+
+// If count goes from 5 -> 6 -> 5, memo returns to original value
+let is_even = use_memo(move || *count.read() % 2 == 0);
+// is_even: false -> true -> false
+// Components only re-render when is_even actually changes
+```
+
+## Best Practices
+
+1. **Keep computations pure**: No side effects in the callback
+2. **Minimize dependencies**: Only read values you actually need
+3. **Use `peek()` for non-reactive reads**: Avoid unnecessary subscriptions
+4. **Profile before optimizing**: Don't use memo unless you have a performance issue
+5. **Consider the cost**: Memoization has overhead; simple calculations may not benefit
+
+## Common Patterns
+
+### Derived boolean flags
+
+```rust
+let count = use_state(|| 0);
+let is_empty = use_memo(move || *count.read() == 0);
+```
+
+### Formatted strings
+
+```rust
+let price = use_state(|| 99.99);
+let formatted = use_memo(move || {
+    format!("${:.2}", price.read())
+});
+```
+
+### Sorted/filtered collections
+
+```rust
+let items = use_state(Vec::new);
+let sorted = use_memo(move || {
+    let mut list = items.read().clone();
+    list.sort();
+    list
+});
+```

@@ -1,0 +1,747 @@
+---
+title: State Management
+description: Manage reactive state in Freya applications with local state and Freya Radio
+---
+
+## Overview
+
+State management is how you handle data that changes over time in your application. Freya provides multiple approaches to state management, from simple local component state to sophisticated global state with fine-grained reactivity.
+
+<Note>
+  State in Freya is **reactive** - when state changes, components that read that state automatically re-render.
+</Note>
+
+## Available APIs
+
+Freya offers three main approaches to state management:
+
+<CardGroup cols={3}>
+  <Card title="Local State" icon="microchip">
+    `use_state` for component-specific data
+  </Card>
+  <Card title="Freya Radio" icon="radio">
+    Global state with channels and fine-grained updates
+  </Card>
+  <Card title="Readable/Writable" icon="arrows-left-right">
+    Type-erased state for reusable components
+  </Card>
+</CardGroup>
+
+## Local State
+
+Local state is managed with the `use_state` hook. It's perfect for component-specific data like hover states, input values, or toggles.
+
+### Basic Usage
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Counter;
+
+impl Component for Counter {
+    fn render(&self) -> impl IntoElement {
+        let mut count = use_state(|| 0);
+
+        rect()
+            .child(format!("Count: {}", count.read()))
+            .child(
+                Button::new()
+                    .on_press(move |_| {
+                        *count.write() += 1;
+                    })
+                    .child("+")
+            )
+    }
+}
+```
+
+### Reading State
+
+Use `.read()` to access the current value:
+
+```rust
+let count = use_state(|| 0);
+
+// Read the value
+let value = *count.read(); // Dereference to get i32
+
+// Display in UI
+rect().child(format!("Count: {}", count.read()))
+```
+
+<Warning>
+  Calling `.read()` subscribes the component to that state. The component will re-render whenever the state changes.
+</Warning>
+
+### Writing State
+
+Use `.write()` to get a mutable reference:
+
+```rust
+let mut count = use_state(|| 0);
+
+// Increment
+*count.write() += 1;
+
+// Set directly
+*count.write() = 10;
+
+// Use .set() for convenience
+count.set(10);
+```
+
+### Passing State to Children
+
+State values are `Copy`, so you can easily pass them to child components:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 0);
+
+    rect()
+        .child(Display { count })
+        .child(Controls { count })
+}
+
+#[derive(PartialEq)]
+struct Display {
+    count: State<i32>,
+}
+
+impl Component for Display {
+    fn render(&self) -> impl IntoElement {
+        format!("Count: {}", self.count.read())
+    }
+}
+
+#[derive(PartialEq)]
+struct Controls {
+    count: State<i32>,
+}
+
+impl Component for Controls {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .horizontal()
+            .spacing(8.0)
+            .child(
+                Button::new()
+                    .on_press(move |_| *self.count.write() -= 1)
+                    .child("-")
+            )
+            .child(
+                Button::new()
+                    .on_press(move |_| *self.count.write() += 1)
+                    .child("+")
+            )
+    }
+}
+```
+
+<Tip>
+  No need to `.clone()` state values - they implement `Copy`!
+</Tip>
+
+## Global State with Freya Radio
+
+For complex applications that need to share state across many components, Freya Radio provides a powerful global state management system with fine-grained reactivity.
+
+### Why Freya Radio?
+
+<CardGroup cols={2}>
+  <Card title="Fine-Grained Updates" icon="sliders">
+    Components only re-render when their specific data changes
+  </Card>
+  <Card title="Channel-Based" icon="tower-broadcast">
+    Subscribe to specific slices of state
+  </Card>
+  <Card title="Multi-Window Support" icon="window-restore">
+    Share state across multiple windows
+  </Card>
+  <Card title="Type-Safe" icon="shield-check">
+    Compile-time guarantees with Rust's type system
+  </Card>
+</CardGroup>
+
+### Setting Up Radio
+
+<Steps>
+  <Step title="Define your state">
+    Create a struct to hold your application state:
+    
+    ```rust
+    #[derive(Default, Clone)]
+    struct AppState {
+        count: i32,
+        user_name: String,
+    }
+    ```
+  </Step>
+
+  <Step title="Define channels">
+    Channels let components subscribe to specific state changes:
+    
+    ```rust
+    #[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
+    enum AppChannel {
+        Count,
+        UserName,
+    }
+    
+    impl RadioChannel<AppState> for AppChannel {}
+    ```
+  </Step>
+
+  <Step title="Initialize the radio station">
+    In your root component:
+    
+    ```rust
+    fn app() -> impl IntoElement {
+        use_init_radio_station::<AppState, AppChannel>(AppState::default);
+        
+        rect().child(Counter {})
+    }
+    ```
+  </Step>
+</Steps>
+
+### Using Radio in Components
+
+```rust
+use freya::prelude::*;
+use freya::radio::*;
+
+#[derive(PartialEq)]
+struct Counter;
+
+impl Component for Counter {
+    fn render(&self) -> impl IntoElement {
+        // Subscribe to the Count channel
+        let mut radio = use_radio(AppChannel::Count);
+
+        rect()
+            .child(format!("Count: {}", radio.read().count))
+            .child(
+                Button::new()
+                    .on_press(move |_| {
+                        radio.write().count += 1;
+                    })
+                    .child("+")
+            )
+    }
+}
+```
+
+<Note>
+  Only components subscribed to a channel re-render when that channel's data changes. This is much more efficient than global state that re-renders everything.
+</Note>
+
+### Multiple Channels Example
+
+Channels allow different parts of your app to update independently:
+
+```rust
+use freya::prelude::*;
+use freya::radio::*;
+
+#[derive(Default, Clone)]
+struct TodoState {
+    todos: Vec<String>,
+    filter: Filter,
+}
+
+#[derive(Clone, Default, PartialEq)]
+enum Filter {
+    #[default]
+    All,
+    Completed,
+    Pending,
+}
+
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
+enum TodoChannel {
+    Todos,
+    Filter,
+}
+
+impl RadioChannel<TodoState> for TodoChannel {}
+
+fn app() -> impl IntoElement {
+    use_init_radio_station::<TodoState, TodoChannel>(TodoState::default);
+    
+    rect()
+        .child(TodoList {})    // Only re-renders when todos change
+        .child(FilterBar {})   // Only re-renders when filter changes
+}
+
+#[derive(PartialEq)]
+struct TodoList;
+
+impl Component for TodoList {
+    fn render(&self) -> impl IntoElement {
+        let todos = use_radio(TodoChannel::Todos);
+        
+        rect()
+            .children(
+                todos.read()
+                    .todos
+                    .iter()
+                    .map(|todo| label().text(todo.clone()))
+            )
+    }
+}
+
+#[derive(PartialEq)]
+struct FilterBar;
+
+impl Component for FilterBar {
+    fn render(&self) -> impl IntoElement {
+        let mut radio = use_radio(TodoChannel::Filter);
+        
+        rect()
+            .horizontal()
+            .child(
+                Button::new()
+                    .on_press(move |_| radio.write().filter = Filter::All)
+                    .child("All")
+            )
+            .child(
+                Button::new()
+                    .on_press(move |_| radio.write().filter = Filter::Completed)
+                    .child("Completed")
+            )
+    }
+}
+```
+
+### Channel Derivation
+
+Channels can notify other channels when they change:
+
+```rust
+impl RadioChannel<TodoState> for TodoChannel {
+    fn derive_channel(self, _state: &TodoState) -> Vec<Self> {
+        match self {
+            TodoChannel::Todos => {
+                // When todos change, also notify the filter channel
+                vec![self, TodoChannel::Filter]
+            }
+            TodoChannel::Filter => vec![self],
+        }
+    }
+}
+```
+
+### Reducer Pattern
+
+For complex state updates, implement the reducer pattern:
+
+```rust
+use freya::prelude::*;
+use freya::radio::*;
+
+#[derive(Clone)]
+struct CounterState {
+    count: i32,
+}
+
+#[derive(Clone)]
+enum CounterAction {
+    Increment,
+    Decrement,
+    Reset,
+    Set(i32),
+}
+
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
+enum CounterChannel {
+    Count,
+}
+
+impl RadioChannel<CounterState> for CounterChannel {}
+
+impl DataReducer for CounterState {
+    type Channel = CounterChannel;
+    type Action = CounterAction;
+
+    fn reduce(&mut self, action: CounterAction) -> ChannelSelection<CounterChannel> {
+        match action {
+            CounterAction::Increment => self.count += 1,
+            CounterAction::Decrement => self.count -= 1,
+            CounterAction::Reset => self.count = 0,
+            CounterAction::Set(value) => self.count = value,
+        }
+        ChannelSelection::Current
+    }
+}
+
+#[derive(PartialEq)]
+struct Counter;
+
+impl Component for Counter {
+    fn render(&self) -> impl IntoElement {
+        let mut radio = use_radio(CounterChannel::Count);
+
+        rect()
+            .child(format!("{}", radio.read().count))
+            .child(
+                Button::new()
+                    .on_press(move |_| radio.apply(CounterAction::Increment))
+                    .child("+")
+            )
+            .child(
+                Button::new()
+                    .on_press(move |_| radio.apply(CounterAction::Reset))
+                    .child("Reset")
+            )
+    }
+}
+```
+
+### Multi-Window Applications
+
+Share state across multiple windows:
+
+```rust
+use freya::prelude::*;
+use freya::radio::*;
+
+#[derive(Default, Clone)]
+struct AppState {
+    count: i32,
+}
+
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
+enum AppChannel {
+    Count,
+}
+
+impl RadioChannel<AppState> for AppChannel {}
+
+fn main() {
+    // Create a global radio station
+    let radio_station = RadioStation::create_global(AppState::default());
+
+    launch(
+        LaunchConfig::new()
+            .with_window(WindowConfig::new_app(Window1 {
+                radio_station: radio_station.clone(),
+            }))
+            .with_window(WindowConfig::new_app(Window2 {
+                radio_station,
+            }))
+    );
+}
+
+struct Window1 {
+    radio_station: RadioStation<AppState, AppChannel>,
+}
+
+impl App for Window1 {
+    fn render(&self) -> impl IntoElement {
+        use_share_radio(move || self.radio_station.clone());
+        let mut radio = use_radio(AppChannel::Count);
+
+        rect()
+            .child(format!("Window 1: {}", radio.read().count))
+            .child(
+                Button::new()
+                    .on_press(move |_| radio.write().count += 1)
+                    .child("+")
+            )
+    }
+}
+
+struct Window2 {
+    radio_station: RadioStation<AppState, AppChannel>,
+}
+
+impl App for Window2 {
+    fn render(&self) -> impl IntoElement {
+        use_share_radio(move || self.radio_station.clone());
+        let radio = use_radio(AppChannel::Count);
+
+        // Both windows share the same state!
+        rect().child(format!("Window 2: {}", radio.read().count))
+    }
+}
+```
+
+## Readable and Writable
+
+For building reusable components that can accept state from any source, use `Readable<T>` and `Writable<T>`.
+
+### Writable State
+
+`Writable<T>` allows components to accept state without knowing whether it's local or global:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct NameInput {
+    name: Writable<String>,
+}
+
+impl Component for NameInput {
+    fn render(&self) -> impl IntoElement {
+        Input::new(self.name.clone())
+    }
+}
+
+fn app() -> impl IntoElement {
+    let local_name = use_state(|| "Alice".to_string());
+
+    rect().child(NameInput {
+        name: local_name.into_writable(), // Convert local state
+    })
+}
+```
+
+### Readable State
+
+`Readable<T>` is for read-only state:
+
+```rust
+#[derive(PartialEq)]
+struct Display {
+    value: Readable<i32>,
+}
+
+impl Component for Display {
+    fn render(&self) -> impl IntoElement {
+        format!("Value: {}", self.value.read())
+    }
+}
+
+fn app() -> impl IntoElement {
+    let count = use_state(|| 0);
+
+    rect().child(Display {
+        value: count.into_readable(), // Convert to readable
+    })
+}
+```
+
+### Converting Between State Types
+
+```rust
+// Local state to Writable
+let state = use_state(|| 0);
+let writable = state.into_writable();
+
+// Local state to Readable  
+let readable = state.into_readable();
+
+// Writable to Readable
+let readable = Readable::from(writable);
+
+// Radio slice to Writable
+let radio = use_radio(AppChannel::Count);
+let slice = radio.slice_mut_current(|s| &mut s.count);
+let writable = slice.into_writable();
+```
+
+## Choosing the Right Approach
+
+<CardGroup cols={2}>
+  <Card title="Use Local State When..." icon="microchip">
+    - State is only used in one component
+    - You have simple, isolated data
+    - Examples: hover state, form input, toggle
+  </Card>
+  <Card title="Use Freya Radio When..." icon="radio">
+    - State is shared across many components
+    - You need fine-grained reactivity
+    - Building a multi-window app
+    - Performance is critical
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep state close to where it's used">
+    Only lift state up to a common ancestor when multiple components need it:
+    
+    ```rust
+    // ❌ Bad - state too high in tree
+    fn app() -> impl IntoElement {
+        let hover = use_state(|| false); // Only used in Button
+        rect().child(Button { hover })
+    }
+    
+    // ✅ Good - state in component that uses it
+    #[derive(PartialEq)]
+    struct Button;
+    impl Component for Button {
+        fn render(&self) -> impl IntoElement {
+            let hover = use_state(|| false);
+            // Use hover state here
+        }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Minimize re-renders with channels">
+    Design your channels so components only subscribe to the data they need:
+    
+    ```rust
+    // ✅ Good - separate channels
+    enum AppChannel {
+        UserName,   // Profile component subscribes
+        TodoList,   // Todo component subscribes
+        Theme,      // All UI components subscribe
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Use Readable/Writable for reusable components">
+    This makes your components work with any state source:
+    
+    ```rust
+    #[derive(PartialEq)]
+    struct Counter {
+        value: Writable<i32>, // Works with local or global state
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Complete Example
+
+Here's a complete todo app using Freya Radio:
+
+```rust
+use freya::prelude::*;
+use freya::radio::*;
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+#[derive(Default, Clone)]
+struct TodoState {
+    todos: Vec<Todo>,
+    input: String,
+}
+
+#[derive(Clone)]
+struct Todo {
+    text: String,
+    completed: bool,
+}
+
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
+enum TodoChannel {
+    Todos,
+    Input,
+}
+
+impl RadioChannel<TodoState> for TodoChannel {}
+
+fn app() -> impl IntoElement {
+    use_init_radio_station::<TodoState, TodoChannel>(TodoState::default);
+
+    rect()
+        .padding(Gaps::new_all(20.))
+        .child(AddTodo {})
+        .child(TodoList {})
+}
+
+#[derive(PartialEq)]
+struct AddTodo;
+
+impl Component for AddTodo {
+    fn render(&self) -> impl IntoElement {
+        let mut radio = use_radio(TodoChannel::Input);
+
+        rect()
+            .horizontal()
+            .spacing(8.0)
+            .child(
+                Input::new(radio.slice_mut_current(|s| &mut s.input).into_writable())
+            )
+            .child(
+                Button::new()
+                    .on_press(move |_| {
+                        let text = radio.read().input.clone();
+                        if !text.is_empty() {
+                            radio.write().todos.push(Todo {
+                                text,
+                                completed: false,
+                            });
+                            radio.write().input.clear();
+                        }
+                    })
+                    .child("Add")
+            )
+    }
+}
+
+#[derive(PartialEq)]
+struct TodoList;
+
+impl Component for TodoList {
+    fn render(&self) -> impl IntoElement {
+        let radio = use_radio(TodoChannel::Todos);
+
+        rect()
+            .children(
+                radio.read()
+                    .todos
+                    .iter()
+                    .enumerate()
+                    .map(|(i, todo)| {
+                        TodoItem {
+                            index: i,
+                            todo: todo.clone(),
+                        }
+                    })
+            )
+    }
+}
+
+#[derive(PartialEq)]
+struct TodoItem {
+    index: usize,
+    todo: Todo,
+}
+
+impl Component for TodoItem {
+    fn render(&self) -> impl IntoElement {
+        let mut radio = use_radio(TodoChannel::Todos);
+        let index = self.index;
+
+        rect()
+            .horizontal()
+            .child(
+                Checkbox::new(self.todo.completed)
+                    .on_change(move |_| {
+                        radio.write().todos[index].completed = !radio.read().todos[index].completed;
+                    })
+            )
+            .child(label().text(&self.todo.text))
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Hooks" icon="link" href="/concepts/hooks">
+    Learn about lifecycle hooks
+  </Card>
+  <Card title="Components" icon="puzzle-piece" href="/concepts/components">
+    Build components with state
+  </Card>
+  <Card title="Events" icon="hand-pointer" href="/concepts/events">
+    Handle user interactions
+  </Card>
+  <Card title="Examples" icon="code" href="https://github.com/marc2332/freya/tree/main/examples">
+    See state management in action
+  </Card>
+</CardGroup>

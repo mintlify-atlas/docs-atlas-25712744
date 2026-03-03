@@ -1,0 +1,557 @@
+---
+title: Internationalization (i18n)
+description: Multi-language support using Project Fluent for localization
+---
+
+Freya provides internationalization support through the `freya-i18n` crate, powered by [Project Fluent](https://projectfluent.org/). Fluent is a modern localization system with a simple syntax and powerful features.
+
+## Quick Start
+
+Create Fluent translation files:
+
+```fluent title="en-US.ftl"
+hello_world = Hello, World!
+hello = Hello, {$name}!
+value_is = Value is {$count}
+```
+
+```fluent title="es-ES.ftl"
+hello_world = ¡Hola, Mundo!
+hello = ¡Hola, {$name}!
+value_is = El valor es {$count}
+```
+
+Initialize and use in your app:
+
+```rust
+use freya::prelude::*;
+use freya::i18n::*;
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    use_init_i18n(|| {
+        I18nConfig::new(langid!("en-US"))
+            .with_locale((langid!("en-US"), include_str!("./i18n/en-US.ftl")))
+            .with_locale((langid!("es-ES"), include_str!("./i18n/es-ES.ftl")))
+    });
+
+    rect().child(Body {})
+}
+
+#[derive(PartialEq)]
+struct Body;
+
+impl Component for Body {
+    fn render(&self) -> impl IntoElement {
+        let mut i18n = I18n::get();
+
+        rect()
+            .expanded()
+            .center()
+            .spacing(6.)
+            .child(
+                rect()
+                    .horizontal()
+                    .spacing(6.)
+                    .child(
+                        Button::new()
+                            .on_press(move |_| i18n.set_language(langid!("en-US")))
+                            .child("English")
+                    )
+                    .child(
+                        Button::new()
+                            .on_press(move |_| i18n.set_language(langid!("es-ES")))
+                            .child("Español")
+                    )
+            )
+            .child(t!("hello_world"))
+            .child(t!("hello", name: "Freya!"))
+    }
+}
+```
+
+## Configuration
+
+### Language Identifiers
+
+Use the `langid!` macro to create language identifiers:
+
+```rust
+use freya::i18n::langid;
+
+let en_us = langid!("en-US");
+let es_es = langid!("es-ES");
+let fr = langid!("fr");
+let pt_br = langid!("pt-BR");
+```
+
+### Static Locales
+
+Embed translations in your binary:
+
+```rust
+I18nConfig::new(langid!("en-US"))
+    .with_locale((langid!("en-US"), include_str!("./locales/en-US.ftl")))
+    .with_locale((langid!("es-ES"), include_str!("./locales/es-ES.ftl")))
+```
+
+### Dynamic Locales
+
+Load translations from the filesystem:
+
+```rust
+use std::path::PathBuf;
+
+I18nConfig::new(langid!("en-US"))
+    .with_locale((langid!("en-US"), PathBuf::from("./locales/en-US.ftl")))
+    .with_locale((langid!("es-ES"), PathBuf::from("./locales/es-ES.ftl")))
+```
+
+### Fallback Language
+
+Set a fallback for missing translations:
+
+```rust
+I18nConfig::new(langid!("es-ES"))
+    .with_fallback(langid!("en-US"))
+    .with_locale((langid!("en-US"), include_str!("./locales/en-US.ftl")))
+    .with_locale((langid!("es-ES"), include_str!("./locales/es-ES.ftl")))
+```
+
+### Auto-Discovery (Optional)
+
+Automatically load all `.ftl` files from a directory:
+
+```rust
+use std::path::PathBuf;
+
+// Requires "discovery" feature
+I18nConfig::new(langid!("en-US"))
+    .with_auto_locales(PathBuf::from("./locales"))
+```
+
+## Initialization
+
+### Component-Scoped
+
+Create i18n context for the component tree:
+
+```rust
+fn app() -> impl IntoElement {
+    use_init_i18n(|| {
+        I18nConfig::new(langid!("en-US"))
+            .with_locale((langid!("en-US"), include_str!("./en-US.ftl")))
+    });
+    
+    rect().child(MyComponent {})
+}
+```
+
+### Global i18n
+
+Share i18n across multiple windows:
+
+```rust
+fn main() {
+    let i18n = I18n::create_global(
+        I18nConfig::new(langid!("en-US"))
+            .with_locale((langid!("en-US"), include_str!("./en-US.ftl")))
+    ).unwrap();
+
+    launch(
+        LaunchConfig::new()
+            .with_window(WindowConfig::new(Window1 { i18n }))
+            .with_window(WindowConfig::new(Window2 { i18n }))
+    );
+}
+
+#[derive(PartialEq)]
+struct Window1 {
+    i18n: I18n,
+}
+
+impl Component for Window1 {
+    fn render(&self) -> impl IntoElement {
+        use_share_i18n(|| self.i18n);
+        rect().child(t!("hello_world"))
+    }
+}
+```
+
+## Translation Macros
+
+### t! - Translate
+
+Basic translation:
+
+```rust
+// Simple message
+t!("hello_world")
+
+// With named arguments
+t!("hello", name: "Alice")
+
+// With multiple arguments
+t!("welcome_user", name: "Bob", role: "Admin")
+
+// With computed values
+let count = 5;
+t!("item_count", count: count)
+```
+
+### te! - Translate with Error Handling
+
+Handle translation errors:
+
+```rust
+match te!("message_id") {
+    Ok(translation) => label().text(translation),
+    Err(e) => label().text(format!("Error: {}", e)),
+}
+```
+
+### tid! - Get Translation ID
+
+Check if translation exists:
+
+```rust
+let msg_id = tid!("hello");
+```
+
+## Fluent Syntax
+
+### Simple Messages
+
+```fluent
+hello = Hello!
+welcome = Welcome to our app
+```
+
+### Messages with Variables
+
+```fluent
+greeting = Hello, {$name}!
+item-count = You have {$count} items
+```
+
+### Messages with Attributes
+
+```fluent
+login =
+    .placeholder = Enter username
+    .button = Log In
+    .error = Invalid credentials
+```
+
+Access attributes:
+
+```rust
+// In Rust code, use dot notation
+t!("login.placeholder")
+t!("login.button")
+t!("login.error")
+```
+
+### Pluralization
+
+```fluent
+item-count = {$count ->
+    [0] No items
+    [1] One item
+   *[other] {$count} items
+}
+```
+
+### Selectors
+
+```fluent
+user-role = {$role ->
+    [admin] Administrator
+    [moderator] Moderator
+   *[other] User
+}
+```
+
+### References
+
+Reuse messages:
+
+```fluent
+brand-name = Freya
+welcome = Welcome to {brand-name}!
+```
+
+### Term References
+
+```fluent
+-brand-name = Freya
+-version = 1.0
+
+header = {-brand-name} v{-version}
+```
+
+## API Usage
+
+### Getting I18n Context
+
+```rust
+// Get existing context (panics if not found)
+let i18n = I18n::get();
+
+// Try to get context (returns Option)
+let i18n = I18n::try_get();
+```
+
+### Translating Programmatically
+
+```rust
+let i18n = I18n::get();
+
+// Basic translation
+let text = i18n.translate("hello_world");
+
+// With arguments
+use fluent::FluentArgs;
+
+let mut args = FluentArgs::new();
+args.set("name", "Alice");
+let text = i18n.translate_with_args("hello", Some(&args));
+```
+
+### Changing Language
+
+```rust
+let mut i18n = I18n::get();
+
+// Change language
+i18n.set_language(langid!("es-ES"));
+
+// Try to change (returns Result)
+i18n.try_set_language(langid!("fr"));
+```
+
+### Getting Current Language
+
+```rust
+let i18n = I18n::get();
+
+let current = i18n.language();
+println!("Current language: {}", current);
+
+// Check fallback
+if let Some(fallback) = i18n.fallback_language() {
+    println!("Fallback: {}", fallback);
+}
+```
+
+### Updating Fallback
+
+```rust
+let mut i18n = I18n::get();
+
+i18n.set_fallback_language(langid!("en-US"));
+```
+
+## Language Switcher
+
+Create a reusable language selector:
+
+```rust
+#[derive(PartialEq)]
+struct LanguageSwitcher;
+
+impl Component for LanguageSwitcher {
+    fn render(&self) -> impl IntoElement {
+        let mut i18n = I18n::get();
+        let current = i18n.language();
+
+        rect()
+            .horizontal()
+            .spacing(8.)
+            .child(
+                Button::new()
+                    .disabled(current == langid!("en-US"))
+                    .on_press(move |_| i18n.set_language(langid!("en-US")))
+                    .child("English")
+            )
+            .child(
+                Button::new()
+                    .disabled(current == langid!("es-ES"))
+                    .on_press(move |_| i18n.set_language(langid!("es-ES")))
+                    .child("Español")
+            )
+            .child(
+                Button::new()
+                    .disabled(current == langid!("fr"))
+                    .on_press(move |_| i18n.set_language(langid!("fr")))
+                    .child("Français")
+            )
+    }
+}
+```
+
+## Error Handling
+
+```rust
+use freya::i18n::DioxusI18nError;
+
+let result = i18n.try_translate("message_id");
+
+match result {
+    Ok(text) => label().text(text),
+    Err(DioxusI18nError::MessageIdNotFound(id)) => {
+        label().text(format!("Missing translation: {}", id))
+    }
+    Err(e) => label().text(format!("Translation error: {}", e)),
+}
+```
+
+## Best Practices
+
+1. **Consistent IDs** - Use kebab-case for message IDs: `user-profile`, `sign-in`
+2. **Organize by feature** - Group related messages in files
+3. **Descriptive IDs** - Use meaningful names: `button-save` not `btn1`
+4. **Default to English** - Use English as fallback language
+5. **Test all languages** - Verify translations render correctly
+6. **Handle missing translations** - Always have fallbacks
+7. **Context in comments** - Document where messages are used
+
+## Complete Example
+
+Multi-language app with user preferences:
+
+```rust
+use freya::prelude::*;
+use freya::i18n::*;
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    use_init_i18n(|| {
+        I18nConfig::new(langid!("en-US"))
+            .with_fallback(langid!("en-US"))
+            .with_locale((langid!("en-US"), include_str!("./i18n/en-US.ftl")))
+            .with_locale((langid!("es-ES"), include_str!("./i18n/es-ES.ftl")))
+            .with_locale((langid!("fr"), include_str!("./i18n/fr.ftl")))
+    });
+
+    rect()
+        .expanded()
+        .padding(20.)
+        .child(Header {})
+        .child(Content {})
+}
+
+#[derive(PartialEq)]
+struct Header;
+
+impl Component for Header {
+    fn render(&self) -> impl IntoElement {
+        let mut i18n = I18n::get();
+        let current = i18n.language();
+
+        rect()
+            .horizontal()
+            .width(Size::fill())
+            .height(Size::px(60.))
+            .background((240, 240, 240))
+            .padding(12.)
+            .spacing(12.)
+            .main_align(Alignment::space_between())
+            .child(label().font_size(24.).text(t!("app-title")))
+            .child(
+                rect()
+                    .horizontal()
+                    .spacing(8.)
+                    .child(
+                        Button::new()
+                            .disabled(current == langid!("en-US"))
+                            .on_press(move |_| i18n.set_language(langid!("en-US")))
+                            .child("EN")
+                    )
+                    .child(
+                        Button::new()
+                            .disabled(current == langid!("es-ES"))
+                            .on_press(move |_| i18n.set_language(langid!("es-ES")))
+                            .child("ES")
+                    )
+                    .child(
+                        Button::new()
+                            .disabled(current == langid!("fr"))
+                            .on_press(move |_| i18n.set_language(langid!("fr")))
+                            .child("FR")
+                    )
+            )
+    }
+}
+
+#[derive(PartialEq)]
+struct Content;
+
+impl Component for Content {
+    fn render(&self) -> impl IntoElement {
+        let count = use_state(|| 0);
+
+        rect()
+            .expanded()
+            .center()
+            .spacing(20.)
+            .child(label().font_size(20.).text(t!("welcome-message")))
+            .child(label().text(t!("item-count", count: *count.read())))
+            .child(
+                rect()
+                    .horizontal()
+                    .spacing(12.)
+                    .child(
+                        Button::new()
+                            .on_press(move |_| count.write().wrapping_sub(1))
+                            .child("-")
+                    )
+                    .child(
+                        Button::new()
+                            .on_press(move |_| *count.write() += 1)
+                            .child("+")
+                    )
+            )
+    }
+}
+```
+
+```fluent title="i18n/en-US.ftl"
+app-title = My Application
+welcome-message = Welcome to our application!
+item-count = {$count ->
+    [0] No items
+    [1] One item
+   *[other] {$count} items
+}
+```
+
+```fluent title="i18n/es-ES.ftl"
+app-title = Mi Aplicación
+welcome-message = ¡Bienvenido a nuestra aplicación!
+item-count = {$count ->
+    [0] Sin artículos
+    [1] Un artículo
+   *[other] {$count} artículos
+}
+```
+
+```fluent title="i18n/fr.ftl"
+app-title = Mon Application
+welcome-message = Bienvenue dans notre application!
+item-count = {$count ->
+    [0] Aucun article
+    [1] Un article
+   *[other] {$count} articles
+}
+```
+
+## API Reference
+
+See the [API documentation](https://docs.rs/freya-i18n) for complete details.

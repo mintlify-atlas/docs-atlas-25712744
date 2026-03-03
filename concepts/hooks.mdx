@@ -1,0 +1,678 @@
+---
+title: Hooks
+description: Understand Freya's hooks system and lifecycle management
+---
+
+## Overview
+
+Hooks are special functions that let you tap into Freya's reactivity and lifecycle system. They enable you to add state, side effects, and other features to your components without writing complex classes.
+
+<Note>
+  All hooks in Freya are prefixed with `use_` - for example, `use_state`, `use_effect`, `use_memo`.
+</Note>
+
+## What Are Hooks?
+
+Hooks are functions that let you "hook into" Freya's component lifecycle and reactive features. They can only be called from within a component's `render` method.
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct MyComponent;
+
+impl Component for MyComponent {
+    fn render(&self) -> impl IntoElement {
+        // ✅ Hooks are called here, at the top of render
+        let mut count = use_state(|| 0);
+        let theme = use_theme();
+        
+        rect().child(format!("Count: {}", count.read()))
+    }
+}
+```
+
+## Rules of Hooks
+
+To ensure hooks work correctly, you **must** follow these rules:
+
+<Warning>
+  Breaking these rules will cause runtime panics. The compiler cannot catch these mistakes, so be careful!
+</Warning>
+
+### 1. Only Call Hooks at the Top Level
+
+Never call hooks inside conditions, loops, or nested functions:
+
+<CodeGroup>
+```rust ❌ Incorrect
+#[derive(PartialEq)]
+struct MyComponent(bool);
+
+impl Component for MyComponent {
+    fn render(&self) -> impl IntoElement {
+        // ❌ Hook called conditionally
+        if self.0 {
+            let state = use_state(|| 5);
+        }
+        
+        rect()
+    }
+}
+```
+
+```rust ✅ Correct
+#[derive(PartialEq)]
+struct MyComponent(bool);
+
+impl Component for MyComponent {
+    fn render(&self) -> impl IntoElement {
+        // ✅ Hook always called in same order
+        let state = use_state(|| 5);
+        
+        rect()
+    }
+}
+```
+</CodeGroup>
+
+### 2. Only Call Hooks in Render Methods
+
+Don't call hooks in event handlers or other callbacks:
+
+<CodeGroup>
+```rust ❌ Incorrect
+#[derive(PartialEq)]
+struct MyComponent;
+
+impl Component for MyComponent {
+    fn render(&self) -> impl IntoElement {
+        rect().on_mouse_up(|_| {
+            // ❌ Hook called in event handler
+            let state = use_state(|| false);
+        })
+    }
+}
+```
+
+```rust ✅ Correct
+#[derive(PartialEq)]
+struct MyComponent;
+
+impl Component for MyComponent {
+    fn render(&self) -> impl IntoElement {
+        // ✅ Hook called in render
+        let mut state = use_state(|| false);
+        
+        rect().on_mouse_up(move |_| {
+            // ✅ Use state in event handler
+            state.set(true);
+        })
+    }
+}
+```
+</CodeGroup>
+
+### 3. Don't Call Hooks in Loops
+
+The number of hook calls must be consistent across renders:
+
+<CodeGroup>
+```rust ❌ Incorrect
+#[derive(PartialEq)]
+struct MyComponent;
+
+impl Component for MyComponent {
+    fn render(&self) -> impl IntoElement {
+        // ❌ Hook called in loop
+        for i in 0..5 {
+            let state = use_state(|| i);
+        }
+        
+        rect()
+    }
+}
+```
+
+```rust ✅ Correct
+#[derive(PartialEq)]
+struct MyComponent;
+
+impl Component for MyComponent {
+    fn render(&self) -> impl IntoElement {
+        // ✅ Single state holding a vector
+        let state = use_state(|| (0..5).collect::<Vec<_>>());
+        
+        rect()
+    }
+}
+```
+</CodeGroup>
+
+## Core Hooks
+
+### use_state
+
+The most fundamental hook for managing local component state.
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Counter;
+
+impl Component for Counter {
+    fn render(&self) -> impl IntoElement {
+        let mut count = use_state(|| 0);
+
+        rect()
+            .child(format!("Count: {}", count.read()))
+            .child(
+                Button::new()
+                    .on_press(move |_| *count.write() += 1)
+                    .child("+")
+            )
+    }
+}
+```
+
+<Tip>
+  The initialization function `|| 0` only runs once when the component first mounts. On subsequent renders, it returns the stored value.
+</Tip>
+
+### use_effect
+
+Run side effects after rendering:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Logger;
+
+impl Component for Logger {
+    fn render(&self) -> impl IntoElement {
+        let mut count = use_state(|| 0);
+
+        // Runs after every render where count changes
+        use_effect(move || {
+            println!("Count changed to: {}", count.read());
+        });
+
+        rect()
+            .child(format!("Count: {}", count.read()))
+            .child(
+                Button::new()
+                    .on_press(move |_| *count.write() += 1)
+                    .child("+")
+            )
+    }
+}
+```
+
+<Note>
+  `use_effect` automatically tracks which state values you read inside it and only re-runs when those values change.
+</Note>
+
+### use_memo
+
+Memoize expensive computations:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct ExpensiveComponent;
+
+impl Component for ExpensiveComponent {
+    fn render(&self) -> impl IntoElement {
+        let mut input = use_state(|| "test".to_string());
+
+        // Only recomputes when input changes
+        let processed = use_memo(move || {
+            expensive_operation(input.read().as_str())
+        });
+
+        rect().child(processed.read().clone())
+    }
+}
+
+fn expensive_operation(input: &str) -> String {
+    // Simulate expensive work
+    input.to_uppercase()
+}
+```
+
+### use_hook
+
+The foundational hook used by all others. Store any value:
+
+```rust
+use std::rc::Rc;
+use std::cell::RefCell;
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct CustomHookExample;
+
+impl Component for CustomHookExample {
+    fn render(&self) -> impl IntoElement {
+        // Store a reference-counted value
+        let cached_data = use_hook(|| {
+            Rc::new(RefCell::new(Vec::new()))
+        });
+
+        rect()
+    }
+}
+```
+
+## Lifecycle Hooks
+
+### use_effect - Mount and Unmount
+
+Handle component lifecycle events:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct LifecycleComponent;
+
+impl Component for LifecycleComponent {
+    fn render(&self) -> impl IntoElement {
+        // Run once on mount
+        use_effect(|| {
+            println!("Component mounted!");
+            
+            // Return cleanup function for unmount
+            move || {
+                println!("Component unmounted!");
+            }
+        });
+
+        rect().child("Hello")
+    }
+}
+```
+
+### Async Effects with use_future_task
+
+Run async operations:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct DataFetcher;
+
+impl Component for DataFetcher {
+    fn render(&self) -> impl IntoElement {
+        let mut data = use_state(|| None);
+
+        use_future_task(move || async move {
+            // Simulate API call
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            data.set(Some("Data loaded!".to_string()));
+        });
+
+        if let Some(content) = data.read().as_ref() {
+            rect().child(content.clone())
+        } else {
+            rect().child("Loading...")
+        }
+    }
+}
+```
+
+<Warning>
+  Async effects run on every render by default. Use `use_memo` or dependencies to control when they run.
+</Warning>
+
+## Common Hooks
+
+### Animation
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct AnimatedBox;
+
+impl Component for AnimatedBox {
+    fn render(&self) -> impl IntoElement {
+        let mut animation = use_animation(|| {
+            AnimNum::new(0., 200.)
+                .duration(500.)
+                .easing(Easing::EaseInOut)
+        });
+
+        use_effect(move || {
+            animation.start();
+        });
+
+        rect()
+            .width(Size::px(animation.value() as f32))
+            .height(Size::px(100.))
+            .background((255, 0, 0))
+    }
+}
+```
+
+### Theming
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct ThemedComponent;
+
+impl Component for ThemedComponent {
+    fn render(&self) -> impl IntoElement {
+        let theme = use_theme();
+
+        rect()
+            .background(theme.background)
+            .color(theme.foreground)
+            .child("Themed content")
+    }
+}
+```
+
+### Focus Management
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct FocusableComponent;
+
+impl Component for FocusableComponent {
+    fn render(&self) -> impl IntoElement {
+        let mut focus = use_focus();
+
+        rect()
+            .focusable(true)
+            .on_focus(move |_| {
+                println!("Focused!");
+            })
+            .child("Click to focus")
+    }
+}
+```
+
+## Custom Hooks
+
+You can create your own hooks by combining existing ones:
+
+```rust
+use freya::prelude::*;
+
+// Custom hook for window size
+fn use_window_size() -> (State<f64>, State<f64>) {
+    let mut width = use_state(|| 800.0);
+    let mut height = use_state(|| 600.0);
+
+    use_effect(move || {
+        // Listen for resize events
+        // Update width and height
+    });
+
+    (width, height)
+}
+
+#[derive(PartialEq)]
+struct ResponsiveComponent;
+
+impl Component for ResponsiveComponent {
+    fn render(&self) -> impl IntoElement {
+        let (width, height) = use_window_size();
+
+        rect().child(format!(
+            "Window: {}x{}",
+            width.read(),
+            height.read()
+        ))
+    }
+}
+```
+
+<Tip>
+  Custom hooks must follow the same rules as built-in hooks - they should start with `use_` and only be called from within `render` methods.
+</Tip>
+
+## Advanced Patterns
+
+### Dependency-Based Effects
+
+Control when effects run:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct DependentEffect;
+
+impl Component for DependentEffect {
+    fn render(&self) -> impl IntoElement {
+        let mut count = use_state(|| 0);
+        let mut other = use_state(|| 0);
+
+        // Only runs when count changes
+        use_effect(move || {
+            let _ = count.read(); // Track count
+            println!("Count changed!");
+        });
+
+        rect()
+    }
+}
+```
+
+### Multiple State Updates
+
+Batch multiple state updates:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct BatchedUpdates;
+
+impl Component for BatchedUpdates {
+    fn render(&self) -> impl IntoElement {
+        let mut count = use_state(|| 0);
+        let mut name = use_state(|| "Alice".to_string());
+
+        rect()
+            .child(Button::new()
+                .on_press(move |_| {
+                    // Both updates happen together
+                    *count.write() += 1;
+                    name.set(format!("User {}", count.read()));
+                })
+                .child("Update")
+            )
+    }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep hooks at the top level">
+    Always call hooks at the very top of your render method:
+    
+    ```rust
+    fn render(&self) -> impl IntoElement {
+        // ✅ All hooks first
+        let state1 = use_state(|| 0);
+        let state2 = use_state(|| false);
+        let theme = use_theme();
+        
+        // Then build UI
+        rect()
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Don't overthink dependencies">
+    Freya automatically tracks what state you read. You don't need to manually specify dependencies:
+    
+    ```rust
+    use_effect(move || {
+        // Automatically tracks count
+        println!("{}", count.read());
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Memoize expensive computations">
+    Use `use_memo` for any operation that takes significant time:
+    
+    ```rust
+    let filtered = use_memo(move || {
+        items.read()
+            .iter()
+            .filter(|item| item.matches_search(query.read()))
+            .collect::<Vec<_>>()
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Clean up effects">
+    Return cleanup functions from effects when needed:
+    
+    ```rust
+    use_effect(|| {
+        let timer = set_interval(|| { /* ... */ });
+        
+        move || {
+            clear_interval(timer);
+        }
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Common Pitfalls
+
+<Warning>
+  ### Infinite Loops
+  
+  Be careful not to create infinite loops:
+  
+  ```rust
+  // ❌ BAD: Infinite loop
+  use_effect(move || {
+      *count.write() += 1; // Triggers re-render, runs effect again
+  });
+  
+  // ✅ GOOD: Only runs once
+  use_effect(move || {
+      // No state mutations
+      println!("Mounted!");
+  });
+  ```
+</Warning>
+
+<Warning>
+  ### Stale Closures
+  
+  State values are `Copy`, so you can freely move them into closures:
+  
+  ```rust
+  let count = use_state(|| 0);
+  
+  // ✅ GOOD: count is Copy
+  Button::new()
+      .on_press(move |_| *count.write() += 1)
+      .child("+")
+  ```
+</Warning>
+
+## Complete Example
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .center()
+        .child(TodoApp {})
+}
+
+#[derive(PartialEq)]
+struct TodoApp;
+
+impl Component for TodoApp {
+    fn render(&self) -> impl IntoElement {
+        let mut todos = use_state(|| Vec::new());
+        let mut input = use_state(|| String::new());
+
+        // Log whenever todos change
+        use_effect(move || {
+            println!("Todo count: {}", todos.read().len());
+        });
+
+        rect()
+            .width(Size::px(400.))
+            .child(
+                rect()
+                    .horizontal()
+                    .spacing(8.0)
+                    .child(
+                        Input::new(input.into_writable())
+                            .placeholder("New todo...")
+                    )
+                    .child(
+                        Button::new()
+                            .on_press(move |_| {
+                                let text = input.read().clone();
+                                if !text.is_empty() {
+                                    todos.write().push(text);
+                                    input.set(String::new());
+                                }
+                            })
+                            .child("Add")
+                    )
+            )
+            .child(
+                rect()
+                    .children(
+                        todos.read()
+                            .iter()
+                            .enumerate()
+                            .map(|(i, todo)| {
+                                rect()
+                                    .key(i)
+                                    .horizontal()
+                                    .child(label().text(todo.clone()))
+                            })
+                    )
+            )
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="State Management" icon="database" href="/concepts/state-management">
+    Deep dive into state management
+  </Card>
+  <Card title="Components" icon="puzzle-piece" href="/concepts/components">
+    Build components with hooks
+  </Card>
+  <Card title="Events" icon="hand-pointer" href="/concepts/events">
+    Handle user interactions
+  </Card>
+  <Card title="Animation" icon="play" href="/api-reference/animation">
+    Learn about animation hooks
+  </Card>
+</CardGroup>

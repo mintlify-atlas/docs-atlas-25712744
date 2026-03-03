@@ -1,0 +1,380 @@
+---
+title: Theming System
+description: Create and customize themes for consistent styling across your Freya application
+---
+
+Freya's theming system provides a powerful way to maintain consistent styling across your application. You can use built-in themes, customize them, or create entirely new themes from scratch.
+
+## Built-in Themes
+
+Freya comes with two pre-built themes: `LIGHT_THEME` and `DARK_THEME`.
+
+### Using Built-in Themes
+
+Set the default theme for your application:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    use_init_theme(|| LIGHT_THEME);
+    
+    rect()
+        .theme_background()  // Uses theme's background color
+        .theme_color()       // Uses theme's text color
+        .center()
+        .expanded()
+        .child("Hello, themed world!")
+}
+```
+
+### Switching Themes
+
+Create a theme switcher for your application:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut theme = use_init_theme(|| LIGHT_THEME);
+    let is_light = *theme.read() == LIGHT_THEME;
+
+    rect()
+        .theme_background()
+        .theme_color()
+        .center()
+        .expanded()
+        .spacing(6.)
+        .child("Switch theme")
+        .child(
+            Switch::new()
+                .toggled(is_light)
+                .on_toggle(move |_| {
+                    if is_light {
+                        theme.set(DARK_THEME);
+                    } else {
+                        theme.set(LIGHT_THEME);
+                    }
+                })
+        )
+}
+```
+
+## Theme Structure
+
+A theme consists of several components:
+
+### Color Sheet
+
+The `ColorsSheet` defines all colors used in the theme:
+
+```rust
+pub struct ColorsSheet {
+    // Brand & Accent
+    pub primary: Color,
+    pub secondary: Color,
+    pub tertiary: Color,
+
+    // Status / Semantic colors
+    pub success: Color,
+    pub warning: Color,
+    pub error: Color,
+    pub info: Color,
+
+    // Surfaces / Backgrounds
+    pub background: Color,
+    pub surface_primary: Color,
+    pub surface_secondary: Color,
+    pub surface_tertiary: Color,
+
+    // Borders
+    pub border: Color,
+    pub border_focus: Color,
+    pub border_disabled: Color,
+
+    // Text / Content
+    pub text_primary: Color,
+    pub text_secondary: Color,
+    pub text_placeholder: Color,
+    pub text_inverse: Color,
+
+    // States / Interaction
+    pub hover: Color,
+    pub focus: Color,
+    pub active: Color,
+    pub disabled: Color,
+
+    // Utility
+    pub overlay: Color,
+    pub shadow: Color,
+}
+```
+
+### Component Themes
+
+Each component has its own theme configuration for colors and layout:
+
+- `ButtonTheme` - Button appearance
+- `InputTheme` - Input field styling
+- `ScrollBarTheme` - Scrollbar appearance
+- `SwitchTheme` - Switch/toggle styling
+- And many more...
+
+## Creating Custom Themes
+
+### Extending Existing Themes
+
+The easiest way to create a custom theme is to extend an existing one:
+
+```rust
+use freya::prelude::*;
+
+pub const CUSTOM_THEME: Theme = Theme {
+    name: "custom",
+    colors: ColorsSheet {
+        primary: Color::from_rgb(37, 52, 63),
+        secondary: Color::from_rgb(255, 155, 81),
+        tertiary: Color::from_rgb(81, 155, 255),
+        ..DARK_THEME.colors  // Inherit other colors from DARK_THEME
+    },
+    ..DARK_THEME  // Inherit all other properties
+};
+
+fn app() -> impl IntoElement {
+    use_init_theme(|| CUSTOM_THEME);
+    
+    rect()
+        .theme_background()
+        .theme_color()
+        .center()
+        .expanded()
+        .child(Switch::new().toggled(false))
+}
+```
+
+### Creating a Complete Theme
+
+For full control, define every aspect of your theme:
+
+```rust
+use freya::prelude::*;
+use torin::prelude::*;
+
+pub const MY_THEME: Theme = Theme {
+    name: "my_custom_theme",
+    colors: ColorsSheet {
+        // Brand colors
+        primary: Color::from_rgb(99, 102, 241),      // Indigo
+        secondary: Color::from_rgb(168, 85, 247),    // Purple
+        tertiary: Color::from_rgb(236, 72, 153),     // Pink
+
+        // Status colors
+        success: Color::from_rgb(34, 197, 94),
+        warning: Color::from_rgb(251, 146, 60),
+        error: Color::from_rgb(239, 68, 68),
+        info: Color::from_rgb(59, 130, 246),
+
+        // Surfaces
+        background: Color::from_rgb(15, 23, 42),
+        surface_primary: Color::from_rgb(30, 41, 59),
+        surface_secondary: Color::from_rgb(51, 65, 85),
+        surface_tertiary: Color::from_rgb(71, 85, 105),
+        surface_inverse: Color::from_rgb(241, 245, 249),
+        surface_inverse_secondary: Color::from_rgb(226, 232, 240),
+        surface_inverse_tertiary: Color::from_rgb(203, 213, 225),
+
+        // Borders
+        border: Color::from_rgb(71, 85, 105),
+        border_focus: Color::from_rgb(99, 102, 241),
+        border_disabled: Color::from_rgb(51, 65, 85),
+
+        // Text
+        text_primary: Color::from_rgb(248, 250, 252),
+        text_secondary: Color::from_rgb(203, 213, 225),
+        text_placeholder: Color::from_rgb(100, 116, 139),
+        text_inverse: Color::from_rgb(15, 23, 42),
+        text_highlight: Color::from_rgb(99, 102, 241),
+
+        // States
+        hover: Color::from_rgb(51, 65, 85),
+        focus: Color::from_rgb(99, 102, 241, 0.3),
+        active: Color::from_rgb(30, 41, 59),
+        disabled: Color::from_rgb(71, 85, 105),
+
+        // Utility
+        overlay: Color::from_rgb(0, 0, 0, 0.5),
+        shadow: Color::from_rgb(0, 0, 0, 0.3),
+    },
+    // Component themes can be customized individually
+    // or inherited from existing themes
+    ..DARK_THEME
+};
+```
+
+## Using Theme Colors
+
+### Theme-aware Methods
+
+Use theme methods to automatically adapt to the current theme:
+
+```rust
+rect()
+    .theme_background()        // Background color from theme
+    .theme_color()             // Text color from theme
+    .child("Themed content")
+```
+
+### Accessing Theme Colors
+
+Access specific theme colors programmatically:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let theme = use_theme();
+    let primary_color = theme.read().colors.primary;
+    
+    rect()
+        .background(primary_color)
+        .width(Size::px(100.))
+        .height(Size::px(100.))
+}
+```
+
+## Theme Preferences
+
+React to system theme preferences:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let platform = Platform::get();
+    let preferred_theme = platform.preferred_theme.read();
+    
+    let theme = match *preferred_theme {
+        PreferredTheme::Light => LIGHT_THEME,
+        PreferredTheme::Dark => DARK_THEME,
+    };
+    
+    use_init_theme(|| theme);
+    
+    rect()
+        .theme_background()
+        .expanded()
+        .child("Theme follows system preference")
+}
+```
+
+## Component-Specific Theming
+
+Customize individual components while keeping the rest of your theme:
+
+```rust
+use freya::prelude::*;
+
+pub const CUSTOM_BUTTON_THEME: Theme = Theme {
+    name: "custom_buttons",
+    button: ButtonColorsThemePreference {
+        background: Color::from_rgb(99, 102, 241),
+        hover_background: Color::from_rgb(79, 70, 229),
+        border_fill: Color::from_rgb(67, 56, 202),
+        focus_border_fill: Color::from_rgb(99, 102, 241),
+        color: Color::from_rgb(255, 255, 255),
+    },
+    ..DARK_THEME
+};
+```
+
+## Best Practices
+
+### 1. Define Color Tokens
+
+Create a consistent color palette:
+
+```rust
+// Define your color tokens
+const INDIGO_600: Color = Color::from_rgb(79, 70, 229);
+const INDIGO_700: Color = Color::from_rgb(67, 56, 202);
+const SLATE_900: Color = Color::from_rgb(15, 23, 42);
+
+// Use them in your theme
+pub const MY_THEME: Theme = Theme {
+    colors: ColorsSheet {
+        primary: INDIGO_600,
+        background: SLATE_900,
+        // ...
+    },
+    // ...
+};
+```
+
+### 2. Maintain Contrast
+
+Ensure sufficient contrast between text and backgrounds:
+
+```rust
+// Good - High contrast
+background: Color::from_rgb(15, 23, 42),   // Dark
+text_primary: Color::from_rgb(248, 250, 252),  // Light
+
+// Bad - Low contrast
+// background: Color::from_rgb(100, 100, 100),
+// text_primary: Color::from_rgb(120, 120, 120),
+```
+
+### 3. Test Both Themes
+
+Always test your app with both light and dark themes to ensure readability.
+
+### 4. Use Semantic Colors
+
+Use semantic color names that describe their purpose:
+
+```rust
+// Use semantic colors
+error: Color::from_rgb(239, 68, 68),      // Red for errors
+success: Color::from_rgb(34, 197, 94),    // Green for success
+warning: Color::from_rgb(251, 146, 60),   // Orange for warnings
+```
+
+### 5. Document Your Theme
+
+```rust
+/// A vibrant, modern theme with indigo as the primary color.
+/// Optimized for dark environments with high contrast text.
+pub const VIBRANT_THEME: Theme = Theme {
+    name: "vibrant",
+    // ...
+};
+```
+
+## Dynamic Theme Updates
+
+Update theme colors at runtime:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut theme = use_init_theme(|| DARK_THEME);
+    
+    let update_accent = move |new_color: Color| {
+        let mut current = (*theme.read()).clone();
+        current.colors.primary = new_color;
+        theme.set(current);
+    };
+    
+    rect()
+        .theme_background()
+        .expanded()
+        .child("Dynamic theming example")
+}
+```
+
+## Next Steps
+
+- Explore [Styling](/guides/styling) for applying theme colors to elements
+- Learn about [Components](/components/overview) and their theme properties
+- Check out the [Colors API](/api/styling/colors) for color utilities

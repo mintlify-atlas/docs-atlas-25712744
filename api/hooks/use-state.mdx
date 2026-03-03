@@ -1,0 +1,193 @@
+---
+title: 'use_state'
+description: 'Create reactive state that triggers re-renders when changed'
+icon: 'database'
+---
+
+Creates a reactive state value that automatically triggers component re-renders when modified.
+
+## Function Signature
+
+```rust
+pub fn use_state<T: 'static>(init: impl FnOnce() -> T) -> State<T>
+```
+
+## Parameters
+
+<ParamField path="init" type="impl FnOnce() -> T" required>
+  A closure that returns the initial value for the state. This closure is only called once during component initialization.
+</ParamField>
+
+## Return Type
+
+Returns a `State<T>` that implements `Copy`, making it cheap to pass around. Components automatically re-render when the state value changes.
+
+## Key Features
+
+- **Reactive**: Components automatically re-render when the state value changes
+- **Copy**: `State<T>` implements `Copy`, no need to clone
+- **Shared**: Multiple components can read from and write to the same state
+- **Scoped**: State is automatically cleaned up when its owning component unmounts
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn counter() -> impl IntoElement {
+    let mut count = use_state(|| 0);
+
+    rect()
+        .child(format!("Count: {}", count.read()))
+        .child(
+            Button::new()
+                .child("Increment")
+                .on_press(move |_| *count.write() += 1),
+        )
+}
+```
+
+## Reading State
+
+### `read()` - Subscribe to changes
+
+Reads the current value and subscribes the component to changes:
+
+```rust
+let count = use_state(|| 0);
+let current_value = count.read(); // Component will re-render when count changes
+```
+
+### `peek()` - Read without subscribing
+
+Reads the value without subscribing (component won't re-render):
+
+```rust
+let count = use_state(|| 0);
+
+if *count.peek() == 0 {
+    println!("Count is zero");
+}
+```
+
+## Writing State
+
+### `write()` - Get mutable reference
+
+Get a mutable reference to modify the value:
+
+```rust
+let mut count = use_state(|| 0);
+*count.write() += 1;
+```
+
+### `set()` - Replace the value
+
+Replace the entire value:
+
+```rust
+let mut status = use_state(|| "idle");
+status.set("loading");
+```
+
+### `with_mut()` - Modify using a closure
+
+Modify the value using a closure:
+
+```rust
+let mut counter = use_state(|| 0);
+
+counter.with_mut(|mut value| {
+    *value += 1;
+    *value *= 2;
+});
+```
+
+## Conditional Updates
+
+### `set_if_modified()` - Update only if different
+
+Only updates if the new value differs from the current value:
+
+```rust
+let mut count = use_state(|| 0);
+
+// This will update and notify subscribers
+count.set_if_modified(5);
+
+// This will do nothing (value is already 5)
+count.set_if_modified(5);
+```
+
+### `set_if_modified_and_then()` - Update and run callback
+
+Updates if different and executes a callback:
+
+```rust
+let mut score = use_state(|| 0);
+
+score.set_if_modified_and_then(100, || {
+    println!("High score achieved!");
+});
+```
+
+## Working with Options
+
+For `State<Option<T>>`, you can use `take()` to move the value out:
+
+```rust
+let mut maybe_value = use_state(|| Some("hello".to_string()));
+
+// Take the value, state becomes None
+let taken = maybe_value.take(); // Some("hello")
+assert_eq!(*maybe_value.read(), None);
+```
+
+## Boolean Toggle
+
+For types that implement `Not` (like `bool`):
+
+```rust
+let mut is_visible = use_state(|| false);
+
+// Toggle the value
+is_visible.toggle(); // false -> true
+
+// Toggle and get the new value
+let new_value = is_visible.toggled(); // true -> false, returns false
+```
+
+## Copy Types Shorthand
+
+For `Copy` types, you can call the state as a function:
+
+```rust
+let count = use_state(|| 0);
+
+// These are equivalent:
+let value1 = count.read().clone();
+let value2 = count(); // Only works for Copy types
+```
+
+## When to Use
+
+Use `use_state` when you need:
+- Mutable state within a component
+- Reactive updates that trigger re-renders
+- Simple local state management
+
+For more complex scenarios, consider:
+- **Global state**: Use `State::create_global()` or the `freya-radio` crate
+- **Derived values**: Use `use_memo` for expensive computations
+- **Side effects**: Use `use_side_effect` to react to state changes
+
+## Performance Notes
+
+- Reading state with `read()` subscribes the component, causing re-renders when it changes
+- Use `peek()` only when you specifically don't want reactivity
+- Prefer `set_if_modified()` over `set()` when the value might not have changed
+- `State<T>` is `Copy`, so no need to clone it when passing to closures
+
+## Thread Safety
+
+`State<T>` is not thread-safe and should only be used within the main UI thread. For cross-thread communication, use channels or other synchronization primitives.

@@ -1,0 +1,318 @@
+---
+title: svg()
+description: Render SVG graphics in your application
+---
+
+`svg()` is used to render SVG (Scalable Vector Graphics) in your app. It accepts SVG data as bytes and renders it using the Skia graphics engine.
+
+## Usage
+
+```rust
+use freya::prelude::*;
+use bytes::Bytes;
+
+fn app() -> impl IntoElement {
+    svg(Bytes::from_static(include_bytes!("icon.svg")))
+        .width(48.0)
+        .height(48.0)
+}
+```
+
+## Builder Methods
+
+### SVG Styling
+
+<ParamField path="color" type="Color">
+  Set the SVG color (tints the entire SVG).
+  
+  ```rust
+  svg(bytes).color(Color::BLUE)
+  ```
+</ParamField>
+
+<ParamField path="fill" type="Color">
+  Override the fill color of SVG paths.
+  
+  ```rust
+  svg(bytes).fill(Color::RED)
+  ```
+</ParamField>
+
+<ParamField path="stroke" type="impl Into<Option<Color>>">
+  Override the stroke color of SVG paths.
+  
+  ```rust
+  svg(bytes).stroke(Color::BLACK)
+  svg(bytes).stroke(None) // Remove stroke
+  ```
+</ParamField>
+
+### Layout
+
+<ParamField path="width" type="Size">
+  Set the SVG width.
+  
+  ```rust
+  svg(bytes).width(64.0)
+  svg(bytes).width(Size::fill())
+  ```
+</ParamField>
+
+<ParamField path="height" type="Size">
+  Set the SVG height.
+  
+  ```rust
+  svg(bytes).height(64.0)
+  svg(bytes).height(Size::fill())
+  ```
+</ParamField>
+
+<ParamField path="expanded" type="()">
+  Expand to fill available space.
+  
+  ```rust
+  svg(bytes).expanded()
+  ```
+</ParamField>
+
+<ParamField path="padding" type="Gaps">
+  Set padding around the SVG.
+  
+  ```rust
+  svg(bytes).padding(10.0)
+  ```
+</ParamField>
+
+<ParamField path="margin" type="Gaps">
+  Set margin outside the SVG.
+  
+  ```rust
+  svg(bytes).margin(5.0)
+  ```
+</ParamField>
+
+<ParamField path="min_width" type="Size">
+  Set minimum width.
+  
+  ```rust
+  svg(bytes).min_width(32.0)
+  ```
+</ParamField>
+
+<ParamField path="min_height" type="Size">
+  Set minimum height.
+  
+  ```rust
+  svg(bytes).min_height(32.0)
+  ```
+</ParamField>
+
+<ParamField path="max_width" type="Size">
+  Set maximum width.
+  
+  ```rust
+  svg(bytes).max_width(128.0)
+  ```
+</ParamField>
+
+<ParamField path="max_height" type="Size">
+  Set maximum height.
+  
+  ```rust
+  svg(bytes).max_height(128.0)
+  ```
+</ParamField>
+
+### Effects
+
+<ParamField path="rotate" type="impl Into<Option<f32>>">
+  Rotate the SVG in degrees.
+  
+  ```rust
+  svg(bytes).rotate(45.0)
+  ```
+</ParamField>
+
+<ParamField path="opacity" type="f32">
+  Set opacity (0.0 to 1.0).
+  
+  ```rust
+  svg(bytes).opacity(0.5)
+  ```
+</ParamField>
+
+<ParamField path="blur" type="f32">
+  Apply blur effect.
+  
+  ```rust
+  svg(bytes).blur(2.0)
+  ```
+</ParamField>
+
+<ParamField path="scale" type="Scale">
+  Scale the SVG.
+  
+  ```rust
+  svg(bytes).scale(1.5)
+  svg(bytes).scale((1.5, 2.0))
+  ```
+</ParamField>
+
+### Accessibility
+
+<ParamField path="a11y_id" type="AccessibilityId">
+  Set the accessibility ID.
+</ParamField>
+
+<ParamField path="a11y_alt" type="impl Into<Box<str>>">
+  Set alternative text for screen readers.
+  
+  ```rust
+  svg(icon_bytes).a11y_alt("Settings icon")
+  ```
+</ParamField>
+
+### Events
+
+<ParamField path="on_press" type="EventHandler">
+  Handle press/click events.
+  
+  ```rust
+  svg(bytes).on_press(|_| println!("SVG clicked!"))
+  ```
+</ParamField>
+
+<ParamField path="on_mouse_enter" type="EventHandler<MouseEventData>">
+  Handle mouse enter events.
+</ParamField>
+
+<ParamField path="on_mouse_leave" type="EventHandler<MouseEventData>">
+  Handle mouse leave events.
+</ParamField>
+
+## Examples
+
+### Basic SVG Icon
+
+```rust
+const ICON: &[u8] = include_bytes!("assets/icon.svg");
+
+svg(Bytes::from_static(ICON))
+    .width(24.0)
+    .height(24.0)
+```
+
+### Colored Icon
+
+```rust
+svg(Bytes::from_static(ICON))
+    .width(32.0)
+    .height(32.0)
+    .color(Color::from_rgb(100, 150, 255))
+```
+
+### Interactive SVG Button
+
+```rust
+let mut hovered = use_state(|| false);
+
+svg(Bytes::from_static(ICON))
+    .width(48.0)
+    .height(48.0)
+    .color(if hovered() { Color::BLUE } else { Color::GRAY })
+    .on_mouse_enter(move |_| hovered.set(true))
+    .on_mouse_leave(move |_| hovered.set(false))
+    .on_press(|_| println!("Clicked!"))
+```
+
+### Responsive SVG
+
+```rust
+svg(Bytes::from_static(LOGO))
+    .width(Size::fill())
+    .height(Size::px(100.0))
+    .padding(20.0)
+```
+
+### SVG with Custom Fill and Stroke
+
+```rust
+svg(Bytes::from_static(ICON))
+    .width(64.0)
+    .height(64.0)
+    .fill(Color::from_rgb(255, 200, 0))
+    .stroke(Color::BLACK)
+```
+
+### Rotated SVG
+
+```rust
+let angle = use_state(|| 0.0);
+
+use_effect(move |_| {
+    // Animate rotation
+    angle.set((angle() + 1.0) % 360.0);
+});
+
+svg(Bytes::from_static(SPINNER))
+    .width(32.0)
+    .height(32.0)
+    .rotate(angle())
+```
+
+### Loading SVG at Runtime
+
+```rust
+use bytes::Bytes;
+
+let svg_data = use_state(|| None::<Bytes>);
+
+use_effect(move |_| {
+    spawn(async move {
+        let bytes = fetch_svg_from_url("https://example.com/icon.svg").await;
+        svg_data.set(Some(bytes));
+    });
+});
+
+if let Some(data) = svg_data() {
+    svg(data)
+        .width(48.0)
+        .height(48.0)
+} else {
+    label().text("Loading...")
+}
+```
+
+## Loading SVG Data
+
+### From Static Files
+
+```rust
+const SVG_DATA: &[u8] = include_bytes!("icon.svg");
+svg(Bytes::from_static(SVG_DATA))
+```
+
+### From String
+
+```rust
+let svg_string = r#"<svg>...</svg>"#;
+svg(Bytes::from(svg_string.as_bytes().to_vec()))
+```
+
+### From File at Runtime
+
+```rust
+use std::fs;
+
+let svg_bytes = fs::read("path/to/icon.svg").unwrap();
+svg(Bytes::from(svg_bytes))
+```
+
+## Notes
+
+- SVG rendering is powered by Skia's SVG library
+- The SVG is automatically sized based on its viewBox and the width/height you specify
+- Color operations tint the entire SVG
+- Fill and stroke override the SVG's internal colors
+- For best results, use SVGs with proper viewBox attributes
+- SVG data must be valid XML

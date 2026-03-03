@@ -1,0 +1,551 @@
+---
+title: Testing Framework
+description: Headless testing framework for Freya applications with event simulation and rendering
+---
+
+Freya provides a comprehensive testing framework through `freya-testing`. Run your Freya applications in a headless environment, simulate user interactions, and verify rendering output without a window.
+
+## Quick Start
+
+Add `freya-testing` to your dev dependencies:
+
+```toml
+[dev-dependencies]
+freya-testing = "0.2"
+```
+
+Write a simple test:
+
+```rust
+use freya::prelude::*;
+use freya_testing::*;
+
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 0);
+
+    rect()
+        .expanded()
+        .center()
+        .on_mouse_up(move |_| *count.write() += 1)
+        .child(format!("Clicks: {}", count.read()))
+}
+
+#[test]
+fn test_clicking() {
+    let mut test = launch_test(app);
+    
+    test.sync_and_update();
+    
+    // Simulate click at position (15, 15)
+    test.click_cursor((15., 15.));
+    
+    // Verify the UI updated
+    let text = test.find(|node, element| {
+        element.as_label().map(|l| l.text.clone())
+    });
+    
+    assert_eq!(text, Some("Clicks: 1".to_string()));
+}
+```
+
+## Creating Test Runners
+
+### launch_test
+
+Simple test runner for basic cases:
+
+```rust
+let mut test = launch_test(app);
+```
+
+Defaults:
+- Window size: 500x500
+- Scale factor: 1.0
+- No custom context
+
+### TestingRunner::new
+
+Full control with custom configuration:
+
+```rust
+let (mut test, state) = TestingRunner::new(
+    app,
+    (300., 300.).into(),      // Window size
+    |runner| {
+        // Provide context
+        runner.provide_root_context(|| State::create(0))
+    },
+    1.0,                       // Scale factor
+);
+
+test.sync_and_update();
+
+// Use provided state
+assert_eq!(*state.peek(), 0);
+```
+
+### launch_doc
+
+Render to PNG for documentation:
+
+```rust
+launch_doc(app, "./output.png")
+    .with_size((400., 300.).into())
+    .with_scale_factor(2.0)
+    .with_hook(|test| {
+        test.click_cursor((100., 100.));
+    })
+    .render();
+```
+
+## Simulating User Input
+
+### Mouse Events
+
+```rust
+let mut test = launch_test(app);
+test.sync_and_update();
+
+// Click (press + release)
+test.click_cursor((50., 50.));
+
+// Press without release
+test.press_cursor((50., 50.));
+
+// Release
+test.release_cursor((50., 50.));
+
+// Move cursor
+test.move_cursor((100., 100.));
+
+// Scroll
+test.scroll((100., 100.), (0., -50.)); // position, delta
+```
+
+### Keyboard Events
+
+```rust
+// Type text
+test.write_text("Hello, World!");
+
+// Press specific keys
+use freya_testing::prelude::*;
+
+test.press_key(Key::Enter);
+test.press_key(Key::Character("a".to_string()));
+test.press_key(Key::Escape);
+```
+
+### Custom Platform Events
+
+```rust
+use freya_testing::prelude::*;
+
+test.send_event(PlatformEvent::Mouse {
+    name: MouseEventName::MouseDown,
+    cursor: (100., 100.).into(),
+    button: Some(MouseButton::Left),
+});
+
+test.sync_and_update();
+```
+
+## State Management
+
+### With Provided Context
+
+Share state between test and app:
+
+```rust
+fn app() -> impl IntoElement {
+    let mut state = use_consume::<State<i32>>();
+
+    rect()
+        .expanded()
+        .on_mouse_up(move |_| *state.write() += 1)
+}
+
+#[test]
+fn test_with_state() {
+    let (mut test, state) = TestingRunner::new(
+        app,
+        (300., 300.).into(),
+        |runner| runner.provide_root_context(|| State::create(0)),
+        1.0,
+    );
+
+    test.sync_and_update();
+    assert_eq!(*state.peek(), 0);
+
+    test.click_cursor((15., 15.));
+    assert_eq!(*state.peek(), 1);
+}
+```
+
+## Querying Elements
+
+### find - Find Single Element
+
+```rust
+let test = launch_test(app);
+
+// Find by text
+let text = test.find(|_node, element| {
+    element.as_label().map(|l| l.text.clone())
+});
+
+assert_eq!(text, Some("Hello".to_string()));
+
+// Find by property
+let color = test.find(|_node, element| {
+    element.as_rect().map(|r| r.background.clone())
+});
+```
+
+### find_many - Find Multiple Elements
+
+```rust
+let test = launch_test(app);
+
+// Find all labels
+let labels: Vec<String> = test.find_many(|_node, element| {
+    element.as_label().map(|l| l.text.clone())
+});
+
+assert_eq!(labels.len(), 3);
+assert!(labels.contains(&"Item 1".to_string()));
+```
+
+### TestingNode API
+
+```rust
+let button_node = test.find(|node, element| {
+    element.as_button()
+        .map(|_| node)
+});
+
+if let Some(node) = button_node {
+    // Get layout information
+    let layout = node.layout();
+    println!("Position: {:?}", layout.area.origin);
+    println!("Size: {:?}", layout.area.size);
+
+    // Check visibility
+    assert!(node.is_visible());
+
+    // Get children
+    let children = node.children();
+    assert_eq!(children.len(), 2);
+
+    // Get element
+    let element = node.element();
+}
+```
+
+## Async Operations
+
+### Handling Async Events
+
+```rust
+let mut test = launch_test(app);
+test.sync_and_update();
+
+// Click button that triggers async operation
+test.click_cursor((50., 50.));
+
+// Wait for async operations
+test.handle_events_immediately();
+test.sync_and_update();
+
+// Or use async
+test.handle_events().await;
+```
+
+### Polling for Animations
+
+Test animations by polling over time:
+
+```rust
+use std::time::Duration;
+
+let mut test = launch_test(app);
+test.sync_and_update();
+
+// Start animation
+test.click_cursor((50., 50.));
+
+// Poll every 16ms for 1 second
+test.poll(Duration::from_millis(16), Duration::from_secs(1));
+
+// Or poll N times
+test.poll_n(Duration::from_millis(16), 60);
+```
+
+## Rendering
+
+### Render to Memory
+
+```rust
+let mut test = launch_test(app);
+test.sync_and_update();
+
+let image_data = test.render(); // Returns SkData (PNG bytes)
+```
+
+### Render to File
+
+```rust
+let mut test = launch_test(app);
+test.sync_and_update();
+
+test.render_to_file("./screenshot.png");
+```
+
+### Visual Regression Testing
+
+```rust
+#[test]
+fn test_visual_regression() {
+    let mut test = launch_test(app);
+    test.sync_and_update();
+
+    // Render and compare
+    let actual = test.render();
+    let expected = std::fs::read("./tests/fixtures/expected.png").unwrap();
+    
+    // Use image comparison library
+    // assert_images_equal(actual, expected);
+}
+```
+
+## Font Configuration
+
+### Custom Fonts
+
+```rust
+use std::collections::HashMap;
+
+let mut test = launch_test(app);
+
+let mut fonts = HashMap::new();
+fonts.insert("Custom Font", include_bytes!("./fonts/custom.ttf") as &[u8]);
+
+test.set_fonts(fonts);
+test.sync_and_update();
+```
+
+### Default Font Family
+
+```rust
+let mut test = launch_test(app);
+
+test.set_default_fonts(&["Arial".into(), "sans-serif".into()]);
+test.sync_and_update();
+```
+
+## Animation Clock
+
+Control animation timing for deterministic tests:
+
+```rust
+use std::time::Duration;
+
+let mut test = launch_test(app);
+test.sync_and_update();
+
+// Manually advance animation clock
+let clock = test.animation_clock();
+clock.advance(Duration::from_millis(500));
+
+test.sync_and_update();
+```
+
+## Complete Testing Example
+
+Counter app with comprehensive tests:
+
+```rust
+use freya::prelude::*;
+use freya_testing::*;
+
+fn counter_app() -> impl IntoElement {
+    let mut count = use_state(|| 0);
+
+    rect()
+        .expanded()
+        .center()
+        .spacing(10.)
+        .child(label().text(format!("Count: {}", count.read())))
+        .child(
+            rect()
+                .horizontal()
+                .spacing(10.)
+                .child(
+                    Button::new()
+                        .on_press(move |_| *count.write() -= 1)
+                        .child("-")
+                )
+                .child(
+                    Button::new()
+                        .on_press(move |_| count.set(0))
+                        .child("Reset")
+                )
+                .child(
+                    Button::new()
+                        .on_press(move |_| *count.write() += 1)
+                        .child("+")
+                )
+        )
+}
+
+#[test]
+fn test_initial_state() {
+    let test = launch_test(counter_app);
+    
+    let text = test.find(|_node, element| {
+        element.as_label().map(|l| l.text.clone())
+    });
+    
+    assert_eq!(text, Some("Count: 0".to_string()));
+}
+
+#[test]
+fn test_increment() {
+    let mut test = launch_test(counter_app);
+    test.sync_and_update();
+
+    // Find and click + button
+    let plus_button = test.find(|node, element| {
+        element.as_button()
+            .filter(|b| b.child_text() == "+")
+            .map(|_| node.layout())
+    }).unwrap();
+
+    let center = plus_button.area.center();
+    test.click_cursor((center.x, center.y));
+
+    let text = test.find(|_node, element| {
+        element.as_label().map(|l| l.text.clone())
+    });
+    
+    assert_eq!(text, Some("Count: 1".to_string()));
+}
+
+#[test]
+fn test_decrement() {
+    let mut test = launch_test(counter_app);
+    test.sync_and_update();
+
+    let minus_button = test.find(|node, element| {
+        element.as_button()
+            .filter(|b| b.child_text() == "-")
+            .map(|_| node.layout())
+    }).unwrap();
+
+    let center = minus_button.area.center();
+    test.click_cursor((center.x, center.y));
+
+    let text = test.find(|_node, element| {
+        element.as_label().map(|l| l.text.clone())
+    });
+    
+    assert_eq!(text, Some("Count: -1".to_string()));
+}
+
+#[test]
+fn test_reset() {
+    let mut test = launch_test(counter_app);
+    test.sync_and_update();
+
+    // Increment first
+    let plus_button = test.find(|node, element| {
+        element.as_button()
+            .filter(|b| b.child_text() == "+")
+            .map(|_| node.layout())
+    }).unwrap();
+    
+    test.click_cursor((plus_button.area.center().x, plus_button.area.center().y));
+    test.click_cursor((plus_button.area.center().x, plus_button.area.center().y));
+
+    // Then reset
+    let reset_button = test.find(|node, element| {
+        element.as_button()
+            .filter(|b| b.child_text() == "Reset")
+            .map(|_| node.layout())
+    }).unwrap();
+    
+    test.click_cursor((reset_button.area.center().x, reset_button.area.center().y));
+
+    let text = test.find(|_node, element| {
+        element.as_label().map(|l| l.text.clone())
+    });
+    
+    assert_eq!(text, Some("Count: 0".to_string()));
+}
+
+#[test]
+fn test_multiple_increments() {
+    let mut test = launch_test(counter_app);
+    test.sync_and_update();
+
+    let plus_button = test.find(|node, element| {
+        element.as_button()
+            .filter(|b| b.child_text() == "+")
+            .map(|_| node.layout())
+    }).unwrap();
+
+    let center = (plus_button.area.center().x, plus_button.area.center().y);
+
+    for _ in 0..5 {
+        test.click_cursor(center);
+    }
+
+    let text = test.find(|_node, element| {
+        element.as_label().map(|l| l.text.clone())
+    });
+    
+    assert_eq!(text, Some("Count: 5".to_string()));
+}
+```
+
+## Best Practices
+
+1. **Call sync_and_update** - Always call after TestingRunner creation and events
+2. **Test user flows** - Simulate real user interactions
+3. **Check state and UI** - Verify both internal state and rendered output
+4. **Use find helpers** - Query elements by their properties
+5. **Test edge cases** - Include boundary conditions
+6. **Test async operations** - Use `handle_events_immediately()` or `handle_events().await`
+7. **Visual regression** - Compare rendered output for UI changes
+8. **Deterministic tests** - Control animation clock for consistent results
+
+## Integration with Test Frameworks
+
+### With cargo test
+
+Tests run with the standard test framework:
+
+```bash
+cargo test
+```
+
+### With insta Snapshots
+
+```rust
+use insta::assert_snapshot;
+
+#[test]
+fn test_ui_snapshot() {
+    let test = launch_test(app);
+    
+    let text = test.find(|_node, element| {
+        element.as_label().map(|l| l.text.clone())
+    }).unwrap();
+    
+    assert_snapshot!(text);
+}
+```
+
+## API Reference
+
+See the [API documentation](https://docs.rs/freya-testing) for complete details.

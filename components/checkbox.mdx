@@ -1,0 +1,131 @@
+---
+title: Checkbox
+description: Checkbox component for boolean selections
+---
+
+The `Checkbox` component displays a checkmark when selected. It's typically used inside a `Tile` component for better interaction.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut checked = use_state(|| false);
+    
+    Tile::new()
+        .on_select(move |_| checked.toggle())
+        .child(Checkbox::new().selected(checked()))
+        .child("Click to check")
+}
+```
+
+## Standalone Usage
+
+```rust
+let mut checked = use_state(|| false);
+
+Checkbox::new().selected(checked())
+```
+
+<Note>
+  Checkbox itself doesn't handle clicks. Use it inside a `Tile` or wrap it with a clickable container to toggle the state.
+</Note>
+
+## Properties
+
+<ParamField path="selected" type="bool" default="false">
+  Whether the checkbox is checked
+</ParamField>
+
+<ParamField path="size" type="f32" default="20.">
+  Size of the checkbox in pixels
+</ParamField>
+
+<ParamField path="theme" type="CheckboxThemePartial">
+  Custom theme for colors and styling
+</ParamField>
+
+## Custom Size
+
+Create larger or smaller checkboxes:
+
+```rust
+let checked = use_state(|| false);
+
+rect()
+    .spacing(12.)
+    .child(
+        Tile::new()
+            .on_select(move |_| checked.toggle())
+            .child(Checkbox::new().selected(checked()).size(32.))
+            .child("Large checkbox")
+    )
+    .child(
+        Tile::new()
+            .on_select(move |_| checked.toggle())
+            .child(Checkbox::new().selected(checked()).size(16.))
+            .child("Small checkbox")
+    )
+```
+
+## Complete Example
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut accept_terms = use_state(|| false);
+    let mut subscribe = use_state(|| false);
+    
+    rect()
+        .spacing(16.)
+        .child(
+            Tile::new()
+                .on_select(move |_| accept_terms.toggle())
+                .child(Checkbox::new().selected(accept_terms()))
+                .child("I accept the terms and conditions")
+        )
+        .child(
+            Tile::new()
+                .on_select(move |_| subscribe.toggle())
+                .child(Checkbox::new().selected(subscribe()))
+                .child("Subscribe to newsletter")
+        )
+        .child(
+            Button::new()
+                .enabled(accept_terms())
+                .filled()
+                .child("Continue")
+        )
+}
+```
+
+## Animation
+
+Checkboxes feature a smooth scale and opacity animation when toggling between checked and unchecked states.
+
+## Accessibility
+
+- `role="checkbox"`
+- Keyboard focusable
+- Responds to Space key when focused
+- Visual focus indicators
+
+## Theming
+
+Customize checkbox appearance:
+
+```rust
+Checkbox::new()
+    .selected(checked())
+    .theme(CheckboxThemePartial {
+        selected_fill: Some(Color::from_rgb(50, 150, 50)),
+        selected_icon_fill: Some(Color::WHITE),
+        ..Default::default()
+    })
+```
+
+## Source
+
+View the full implementation: [checkbox.rs](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/checkbox.rs)

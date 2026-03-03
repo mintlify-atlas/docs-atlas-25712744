@@ -1,0 +1,252 @@
+---
+title: Input
+description: Text input field component with validation and multiple display modes
+---
+
+The `Input` component provides a text input field with support for placeholders, validation, password mode, and different visual styles.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let text = use_state(String::new);
+    
+    Input::new(text)
+        .placeholder("Type something...")
+}
+```
+
+## Style Variants
+
+### Normal (Default)
+
+```rust
+let text = use_state(String::new);
+
+Input::new(text)
+    .placeholder("Normal input")
+```
+
+### Filled
+
+```rust
+let text = use_state(String::new);
+
+Input::new(text)
+    .placeholder("Filled input")
+    .filled()
+```
+
+### Flat
+
+```rust
+let text = use_state(String::new);
+
+Input::new(text)
+    .placeholder("Flat input")
+    .flat()
+```
+
+## Layout Variants
+
+### Compact
+
+```rust
+Input::new(text)
+    .placeholder("Compact")
+    .compact()
+```
+
+### Expanded
+
+```rust
+Input::new(text)
+    .placeholder("Expanded")
+    .expanded()
+```
+
+## Password Mode
+
+Hide input text for passwords:
+
+```rust
+let password = use_state(String::new);
+
+Input::new(password)
+    .placeholder("Enter password")
+    .mode(InputMode::new_password())
+```
+
+Or use a custom masking character:
+
+```rust
+Input::new(password)
+    .mode(InputMode::Hidden('•'))
+```
+
+## Properties
+
+<ParamField path="value" type="Writable<String>" required>
+  The text value (typically from `use_state`)
+</ParamField>
+
+<ParamField path="placeholder" type="impl Into<Cow<'static, str>>">
+  Placeholder text shown when input is empty
+</ParamField>
+
+<ParamField path="on_validate" type="EventHandler<InputValidator>">
+  Callback for validating input changes. Set `validator.set_valid(false)` to reject changes
+</ParamField>
+
+<ParamField path="on_submit" type="EventHandler<String>">
+  Callback fired when Enter key is pressed
+</ParamField>
+
+<ParamField path="mode" type="InputMode" default="InputMode::Shown">
+  Display mode: `Shown` or `Hidden(char)` for passwords
+</ParamField>
+
+<ParamField path="auto_focus" type="bool" default="false">
+  Whether to automatically focus when mounted
+</ParamField>
+
+<ParamField path="enabled" type="bool" default="true">
+  Whether the input can be interacted with
+</ParamField>
+
+<ParamField path="width" type="Size" default="Size::px(150.)">
+  Width of the input field
+</ParamField>
+
+<ParamField path="text_align" type="TextAlign">
+  Text alignment within the input
+</ParamField>
+
+<ParamField path="style_variant" type="InputStyleVariant">
+  Visual style: `Normal`, `Filled`, or `Flat`
+</ParamField>
+
+<ParamField path="layout_variant" type="InputLayoutVariant">
+  Size variant: `Normal`, `Compact`, or `Expanded`
+</ParamField>
+
+## Validation Example
+
+Validate input to only allow numbers:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let text = use_state(String::new);
+    
+    Input::new(text)
+        .placeholder("Numbers only")
+        .on_validate(move |validator: InputValidator| {
+            let is_valid = validator.text().chars().all(|c| c.is_numeric());
+            validator.set_valid(is_valid);
+        })
+}
+```
+
+## Submit Handler Example
+
+Handle form submission:
+
+```rust
+let text = use_state(String::new);
+let mut submitted = use_state(|| None::<String>);
+
+rect()
+    .spacing(8.)
+    .child(
+        Input::new(text)
+            .placeholder("Enter text and press Enter")
+            .on_submit(move |value| {
+                submitted.set(Some(value));
+                text.set(String::new());
+            })
+    )
+    .child(
+        submitted()
+            .as_ref()
+            .map(|s| format!("Submitted: {}", s))
+            .unwrap_or_default()
+    )
+```
+
+## Complete Example
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let username = use_state(String::new);
+    let password = use_state(String::new);
+    let mut message = use_state(|| String::new());
+    
+    let on_login = move |_| {
+        if !username().is_empty() && !password().is_empty() {
+            message.set(format!("Logging in as {}...", username()));
+        }
+    };
+    
+    rect()
+        .center()
+        .spacing(12.)
+        .child(
+            Input::new(username)
+                .placeholder("Username")
+                .width(Size::px(200.))
+        )
+        .child(
+            Input::new(password)
+                .placeholder("Password")
+                .mode(InputMode::new_password())
+                .width(Size::px(200.))
+        )
+        .child(
+            Button::new()
+                .on_press(on_login)
+                .filled()
+                .child("Login")
+        )
+        .child(message())
+}
+```
+
+## Text Editing
+
+The input supports standard text editing features:
+
+- **Selection**: Click and drag to select text
+- **Cut/Copy/Paste**: Standard keyboard shortcuts
+- **Undo/Redo**: Ctrl+Z / Ctrl+Y
+- **Navigation**: Arrow keys, Home, End
+- **Deletion**: Backspace, Delete
+
+## Accessibility
+
+- `role="textInput"` (or `"passwordInput"` in password mode)
+- Keyboard navigation with Tab
+- Focus indicators
+- Screen reader support
+
+## Theming
+
+Customize appearance:
+
+```rust
+Input::new(text)
+    .theme_colors(InputColorsThemePartial {
+        background: Some(Color::from_rgb(240, 240, 255)),
+        color: Some(Color::BLACK),
+        ..Default::default()
+    })
+```
+
+## Source
+
+View the full implementation: [input.rs](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/input.rs)

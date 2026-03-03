@@ -1,0 +1,280 @@
+---
+title: Table
+description: Display tabular data with sortable columns and custom styling
+---
+
+The `Table` component displays data in rows and columns with support for sorting, hover effects, and custom column widths.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    Table::new()
+        .child(
+            TableHead::new().child(
+                TableRow::new()
+                    .child(TableCell::new().child("Name"))
+                    .child(TableCell::new().child("Age"))
+                    .child(TableCell::new().child("City"))
+            )
+        )
+        .child(
+            TableBody::new()
+                .child(
+                    TableRow::new()
+                        .child(TableCell::new().child("Alice"))
+                        .child(TableCell::new().child("30"))
+                        .child(TableCell::new().child("New York"))
+                )
+                .child(
+                    TableRow::new()
+                        .child(TableCell::new().child("Bob"))
+                        .child(TableCell::new().child("25"))
+                        .child(TableCell::new().child("London"))
+                )
+        )
+}
+```
+
+## Components
+
+Tables are composed of several components:
+
+- **Table**: Container for the entire table
+- **TableHead**: Contains header row(s)
+- **TableBody**: Contains data rows
+- **TableRow**: A single row
+- **TableCell**: A cell within a row
+
+## Properties
+
+### Table
+
+<ParamField path="height" type="Size" default="Size::Inner">
+  Height of the table container
+</ParamField>
+
+<ParamField path="column_widths" type="Vec<Size>">
+  Custom widths for each column. Defaults to equal flex distribution
+</ParamField>
+
+<ParamField path="theme" type="TableThemePartial">
+  Custom theme for the table
+</ParamField>
+
+### TableCell
+
+<ParamField path="on_press" type="EventHandler<Event<PressEventData>>">
+  Callback when cell is clicked (useful for column headers)
+</ParamField>
+
+<ParamField path="order_direction" type="Option<OrderDirection>">
+  Shows sort arrow: `Some(OrderDirection::Up)`, `Some(OrderDirection::Down)`, or `None`
+</ParamField>
+
+<ParamField path="padding" type="Gaps" default="Gaps::new_all(5.0)">
+  Padding inside the cell
+</ParamField>
+
+<ParamField path="height" type="Size" default="Size::px(35.0)">
+  Height of the cell
+</ParamField>
+
+## Column Widths
+
+Customize column widths:
+
+```rust
+Table::new()
+    .column_widths([
+        Size::px(200.),      // Fixed width
+        Size::flex(2.),      // Takes 2x space
+        Size::flex(1.),      // Takes 1x space
+    ])
+    // ... children
+```
+
+## Sortable Columns
+
+Implement sorting with clickable headers:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq, Clone)]
+enum SortBy { Name, Age, City }
+
+fn app() -> impl IntoElement {
+    let mut sort_by = use_state(|| SortBy::Name);
+    let mut sort_dir = use_state(|| OrderDirection::Down);
+    
+    let toggle_sort = move |col: SortBy| {
+        if *sort_by.read() == col {
+            sort_dir.set(match *sort_dir.read() {
+                OrderDirection::Down => OrderDirection::Up,
+                OrderDirection::Up => OrderDirection::Down,
+            });
+        } else {
+            sort_by.set(col);
+            sort_dir.set(OrderDirection::Down);
+        }
+    };
+    
+    Table::new()
+        .child(
+            TableHead::new().child(
+                TableRow::new()
+                    .child(
+                        TableCell::new()
+                            .on_press(move |_| toggle_sort(SortBy::Name))
+                            .order_direction(
+                                (*sort_by.read() == SortBy::Name).then(|| *sort_dir.read())
+                            )
+                            .child("Name")
+                    )
+                    .child(
+                        TableCell::new()
+                            .on_press(move |_| toggle_sort(SortBy::Age))
+                            .order_direction(
+                                (*sort_by.read() == SortBy::Age).then(|| *sort_dir.read())
+                            )
+                            .child("Age")
+                    )
+                    .child(TableCell::new().child("City"))
+            )
+        )
+        .child(
+            TableBody::new()
+                // ... sorted rows
+        )
+}
+```
+
+## Scrollable Table
+
+Combine with `ScrollView` for large datasets:
+
+```rust
+Table::new()
+    .child(
+        TableHead::new().child(
+            TableRow::new()
+                .child(TableCell::new().child("Column 1"))
+                .child(TableCell::new().child("Column 2"))
+        )
+    )
+    .child(
+        TableBody::new().child(
+            ScrollView::new()
+                .height(Size::px(400.))
+                .children(
+                    (0..100).map(|i| {
+                        TableRow::new()
+                            .key(i)
+                            .child(TableCell::new().child(format!("Row {} Col 1", i)))
+                            .child(TableCell::new().child(format!("Row {} Col 2", i)))
+                            .into()
+                    })
+                )
+        )
+    )
+```
+
+## Complete Example
+
+Full sortable table with data:
+
+```rust
+use freya::prelude::*;
+use itertools::Itertools;
+
+#[derive(PartialEq, Clone)]
+enum OrderBy { Name, Type, Rank }
+
+fn app() -> impl IntoElement {
+    let mut order = use_state(|| OrderBy::Name);
+    let mut order_direction = use_state(|| OrderDirection::Down);
+    
+    let data = vec![
+        vec!["Zeus", "Sky", "01"],
+        vec!["Poseidon", "Sea", "03"],
+        vec!["Ares", "War", "08"],
+        vec!["Aphrodite", "Love", "10"],
+    ];
+    
+    let sorted_data = data.iter().sorted_by(|a, b| {
+        let cmp = match *order.read() {
+            OrderBy::Name => Ord::cmp(a[0], b[0]),
+            OrderBy::Type => Ord::cmp(a[1], b[1]),
+            OrderBy::Rank => Ord::cmp(a[2], b[2]),
+        };
+        if *order_direction.read() == OrderDirection::Down {
+            cmp
+        } else {
+            cmp.reverse()
+        }
+    });
+    
+    Table::new()
+        .column_widths([Size::flex(4.), Size::flex(3.), Size::flex(1.)])
+        .child(
+            TableHead::new().child(
+                TableRow::new()
+                    .child(
+                        TableCell::new()
+                            .on_press(move |_| toggle_sort(&order, &order_direction, OrderBy::Name))
+                            .order_direction((*order.read() == OrderBy::Name).then(|| *order_direction.read()))
+                            .child("Name")
+                    )
+                    .child(
+                        TableCell::new()
+                            .on_press(move |_| toggle_sort(&order, &order_direction, OrderBy::Type))
+                            .order_direction((*order.read() == OrderBy::Type).then(|| *order_direction.read()))
+                            .child("Type")
+                    )
+                    .child(
+                        TableCell::new()
+                            .on_press(move |_| toggle_sort(&order, &order_direction, OrderBy::Rank))
+                            .order_direction((*order.read() == OrderBy::Rank).then(|| *order_direction.read()))
+                            .child("Rank")
+                    )
+            )
+        )
+        .child(
+            TableBody::new().children(
+                sorted_data.map(|row| {
+                    TableRow::new()
+                        .child(TableCell::new().child(row[0]))
+                        .child(TableCell::new().child(row[1]))
+                        .child(TableCell::new().child(row[2]))
+                        .into()
+                })
+            )
+        )
+}
+```
+
+## Row Hover Effect
+
+Rows automatically show a hover background when the mouse is over them.
+
+## Theming
+
+Customize table appearance:
+
+```rust
+Table::new()
+    .theme(TableThemePartial {
+        background: Some(Color::WHITE),
+        row_background: Some(Color::from_rgb(250, 250, 250)),
+        hover_row_background: Some(Color::from_rgb(240, 240, 255)),
+        divider_fill: Some(Color::from_rgb(200, 200, 200)),
+        ..Default::default()
+    })
+```
+
+## Source
+
+View the full implementation: [table.rs](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/table.rs)

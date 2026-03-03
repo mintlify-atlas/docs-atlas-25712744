@@ -1,0 +1,236 @@
+---
+title: 'use_side_effect'
+description: 'Run side effects when reactive values change'
+icon: 'bolt'
+---
+
+Registers a callback that runs whenever a reactive value read inside it changes. This is Freya's primary hook for handling side effects.
+
+<Note>
+Freya uses `use_side_effect` instead of `use_effect` to be explicit about side-effect behavior.
+</Note>
+
+## Function Signature
+
+```rust
+pub fn use_side_effect(callback: impl FnMut() + 'static)
+```
+
+## Parameters
+
+<ParamField path="callback" type="impl FnMut() + 'static" required>
+  A mutable closure that will be called whenever any reactive values read inside it change. The closure is also called once immediately when the component mounts.
+</ParamField>
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn logger() -> impl IntoElement {
+    let count = use_state(|| 0);
+
+    // This runs whenever count changes
+    use_side_effect(move || {
+        let value = *count.read();
+        println!("Count changed to: {}", value);
+    });
+
+    rect()
+}
+```
+
+## How It Works
+
+The side effect automatically subscribes to any `State` values that are read inside it:
+
+1. The callback runs once when the component first renders
+2. Any `State` values accessed via `.read()` are tracked
+3. When those values change, the callback runs again
+4. The subscription is automatically cleaned up when the component unmounts
+
+## Variants
+
+### `use_side_effect` - Standard side effect
+
+Runs synchronously when dependencies change:
+
+```rust
+let state = use_state(|| 0);
+
+use_side_effect(move || {
+    let value = *state.read();
+    println!("{}", value);
+});
+```
+
+### `use_after_side_effect` - Deferred execution
+
+Runs after the current frame completes, useful for operations that should happen after rendering:
+
+```rust
+let state = use_state(|| 0);
+
+use_after_side_effect(move || {
+    let value = *state.read();
+    // This runs after the frame completes
+    perform_expensive_operation(value);
+});
+```
+
+### `use_side_effect_value` - Side effect with return value
+
+Runs a side effect and returns a reactive `State` with the result:
+
+```rust
+let input = use_state(|| "hello");
+
+let uppercase = use_side_effect_value(move || {
+    input.read().to_uppercase()
+});
+
+// Use the computed value
+let result = uppercase.read(); // "HELLO"
+```
+
+### `use_side_effect_with_deps` - Manual dependencies
+
+Specify explicit dependencies instead of automatic tracking:
+
+```rust
+let some_value = 42;
+
+use_side_effect_with_deps(&some_value, move |value| {
+    println!("Value is: {}", value);
+});
+```
+
+## Examples
+
+### Logging state changes
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 0);
+
+    use_side_effect(move || {
+        println!("Count: {}", count.read());
+    });
+
+    rect().child(
+        Button::new()
+            .on_press(move |_| *count.write() += 1)
+            .child("Increment")
+    )
+}
+```
+
+### Multiple reactive values
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let name = use_state(|| "Alice".to_string());
+    let age = use_state(|| 25);
+
+    // Subscribes to both name and age
+    use_side_effect(move || {
+        println!("{} is {} years old", name.read(), age.read());
+    });
+
+    rect()
+}
+```
+
+### Conditional effects
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let count = use_state(|| 0);
+
+    use_side_effect(move || {
+        let value = *count.read();
+        
+        if value > 10 {
+            println!("Count exceeded 10!");
+        }
+    });
+
+    rect()
+}
+```
+
+### Async operations
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let user_id = use_state(|| 1);
+
+    use_side_effect(move || {
+        let id = *user_id.read();
+        
+        spawn(async move {
+            let data = fetch_user_data(id).await;
+            println!("Fetched: {:?}", data);
+        });
+    });
+
+    rect()
+}
+```
+
+## When to Use
+
+Use `use_side_effect` for:
+- Logging and debugging
+- Syncing with external systems
+- Triggering async operations
+- Updating DOM or platform APIs
+- Performing cleanup or initialization
+
+**Don't use it for:**
+- Deriving values from state (use `use_memo` instead)
+- Simple state transformations (compute directly in render)
+
+## Comparison with `use_memo`
+
+| Feature | `use_side_effect` | `use_memo` |
+|---------|-------------------|------------|
+| Purpose | Side effects | Cached computations |
+| Returns value | No | Yes |
+| Use case | I/O, logging, async | Expensive calculations |
+| Re-runs | On dependency change | On dependency change |
+
+## Performance Considerations
+
+- Side effects run synchronously by default - use `use_after_side_effect` for expensive operations
+- Avoid reading too many reactive values in a single effect
+- Keep side effects focused and specific
+- Use `peek()` instead of `read()` if you don't want to subscribe to changes
+
+## Cleanup
+
+Side effects are automatically cleaned up when the component unmounts. For manual cleanup, spawn a task and cancel it when needed:
+
+```rust
+let task_handle = use_state(|| None);
+
+use_side_effect(move || {
+    let handle = spawn(async {
+        // Long-running operation
+    });
+    task_handle.set(Some(handle));
+});
+
+// Later, cancel if needed
+if let Some(handle) = task_handle.peek() {
+    handle.cancel();
+}
+```

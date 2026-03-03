@@ -1,0 +1,402 @@
+---
+title: Component
+description: Build reusable UI components with the Component trait
+---
+
+The `Component` trait enables creating reusable pieces of UI. Every component creates a new layer of state in the application, allowing the use of hooks within their `render` methods.
+
+## Trait Definition
+
+```rust
+pub trait Component: ComponentKey + PartialEq + 'static {
+    fn render(&self) -> impl IntoElement;
+
+    fn render_key(&self) -> DiffKey {
+        self.default_key()
+    }
+}
+```
+
+<ParamField path="render" type="fn(&self) -> impl IntoElement" required>
+  The render method that returns the component's element tree. This method can use hooks.
+</ParamField>
+
+<ParamField path="render_key" type="fn(&self) -> DiffKey" optional>
+  Optional method to provide a custom key for reconciliation. Defaults to using the render function pointer.
+</ParamField>
+
+## Trait Bounds
+
+### ComponentKey
+
+Provides a default key for component reconciliation based on the render function pointer.
+
+### PartialEq
+
+Components must implement `PartialEq` to enable the reconciliation algorithm to detect when props have changed.
+
+### 'static
+
+Components must have a `'static` lifetime, meaning they cannot hold non-static references.
+
+## Basic Example
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Counter {
+    pub initial_value: i32,
+}
+
+impl Component for Counter {
+    fn render(&self) -> impl IntoElement {
+        let mut count = use_state(|| self.initial_value);
+
+        rect()
+            .horizontal()
+            .spacing(8.)
+            .child(
+                Button::new()
+                    .on_press(move |_| {
+                        *count.write() += 1;
+                    })
+                    .child("Increment")
+            )
+            .child(label().text(format!("Count: {}", count.read())))
+    }
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .center()
+        .child(Counter { initial_value: 0 })
+}
+```
+
+## Using Hooks
+
+Components can use any Freya hook within their `render` method:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct FetchData {
+    pub url: String,
+}
+
+impl Component for FetchData {
+    fn render(&self) -> impl IntoElement {
+        let mut data = use_state(|| None::<String>);
+        let url = self.url.clone();
+
+        use_effect(move || {
+            async_spawn(async move {
+                // Fetch data
+                let response = fetch(&url).await;
+                *data.write() = Some(response);
+            });
+        });
+
+        match data.read().as_ref() {
+            Some(content) => label().text(content.clone()),
+            None => label().text("Loading..."),
+        }
+    }
+}
+```
+
+## Component Props
+
+The component struct fields act as props:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct UserCard {
+    pub name: String,
+    pub age: u32,
+    pub avatar_url: Option<String>,
+}
+
+impl Component for UserCard {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .horizontal()
+            .spacing(12.)
+            .padding(16.)
+            .background((240, 240, 240))
+            .corner_radius(8.)
+            .child(
+                label()
+                    .text(&self.name)
+                    .font_size(18.)
+                    .font_weight(FontWeight::BOLD)
+            )
+            .child(
+                label()
+                    .text(format!("Age: {}", self.age))
+                    .font_size(14.)
+            )
+    }
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .vertical()
+        .spacing(8.)
+        .child(UserCard {
+            name: "Alice".to_string(),
+            age: 30,
+            avatar_url: None,
+        })
+        .child(UserCard {
+            name: "Bob".to_string(),
+            age: 25,
+            avatar_url: None,
+        })
+}
+```
+
+## PartialEq and Reconciliation
+
+The `PartialEq` implementation determines when the component should re-render. If props haven't changed, the component's render method won't be called again:
+
+```rust
+#[derive(PartialEq)]
+struct ExpensiveComponent {
+    pub data: Vec<i32>,
+    pub config: Config,
+}
+
+#[derive(PartialEq)]
+struct Config {
+    pub show_details: bool,
+}
+
+impl Component for ExpensiveComponent {
+    fn render(&self) -> impl IntoElement {
+        // This only runs when self != previous_self
+        // Heavy computation here
+        rect().child(format!("Items: {}", self.data.len()))
+    }
+}
+```
+
+## ComponentOwned
+
+For components that need to consume themselves, use `ComponentOwned`:
+
+```rust
+pub trait ComponentOwned: ComponentKey + PartialEq + 'static {
+    fn render(self) -> impl IntoElement;
+
+    fn render_key(&self) -> DiffKey {
+        self.default_key()
+    }
+}
+```
+
+This is useful when you need to move data out of the component:
+
+```rust
+#[derive(PartialEq, Clone)]
+struct OwnedComponent {
+    pub data: Arc<Vec<String>>,
+}
+
+impl ComponentOwned for OwnedComponent {
+    fn render(self) -> impl IntoElement {
+        // self is consumed here
+        let data = self.data;
+        rect().child(format!("Items: {}", data.len()))
+    }
+}
+```
+
+## Custom Keys
+
+You can provide custom keys for better reconciliation control:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct ListItem {
+    pub id: u64,
+    pub content: String,
+}
+
+impl Component for ListItem {
+    fn render(&self) -> impl IntoElement {
+        label().text(&self.content)
+    }
+
+    fn render_key(&self) -> DiffKey {
+        // Use the item's unique ID as the key
+        DiffKey::U64(self.id)
+    }
+}
+```
+
+## Best Practices
+
+### 1. Always implement PartialEq
+
+Use `#[derive(PartialEq)]` when possible:
+
+```rust
+#[derive(PartialEq)]
+struct MyComponent {
+    pub prop1: String,
+    pub prop2: i32,
+}
+```
+
+### 2. Use KeyExt for dynamic lists
+
+When rendering lists, always use the `key()` method:
+
+```rust
+fn render_list(items: &[Item]) -> Vec<Element> {
+    items
+        .iter()
+        .map(|item| {
+            ItemComponent { data: item.clone() }
+                .key(item.id)
+                .into_element()
+        })
+        .collect()
+}
+```
+
+### 3. Keep components small and focused
+
+```rust
+// Good: Small, focused component
+#[derive(PartialEq)]
+struct IconButton {
+    pub icon: String,
+    pub on_click: EventHandler<()>,
+}
+
+// Better: Break large components into smaller ones
+fn app() -> impl IntoElement {
+    rect()
+        .child(Header {})
+        .child(Content {})
+        .child(Footer {})
+}
+```
+
+### 4. Avoid cloning in render when possible
+
+Use references for read-only data:
+
+```rust
+#[derive(PartialEq)]
+struct DataView<'a> {
+    pub data: &'a [String],
+}
+```
+
+### 5. Use hooks for component state
+
+```rust
+impl Component for MyComponent {
+    fn render(&self) -> impl IntoElement {
+        // Good: Local state with hooks
+        let mut local_state = use_state(|| 0);
+
+        // Component logic
+    }
+}
+```
+
+## Component vs Element
+
+| Feature | Component | Element |
+|---------|-----------|----------|
+| **Purpose** | Reusable UI with state | Basic building blocks |
+| **Hooks** | Can use hooks | Cannot use hooks |
+| **State** | Creates new state scope | No state scope |
+| **Props** | Struct fields | Method parameters |
+| **Reconciliation** | Based on PartialEq | Based on element type |
+
+## Complete Example
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(WindowConfig::new(app))
+    )
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .center()
+        .vertical()
+        .spacing(8.)
+        .child(ReusableCounter { init_number: 0 })
+        .child(ReusableCounter { init_number: 10 })
+        .child(ReusableCounter { init_number: 100 })
+}
+
+#[derive(PartialEq)]
+struct ReusableCounter {
+    pub init_number: u32,
+}
+
+impl Component for ReusableCounter {
+    fn render(&self) -> impl IntoElement {
+        let mut number = use_state(|| self.init_number);
+
+        rect()
+            .horizontal()
+            .spacing(8.)
+            .padding(12.)
+            .background((245, 245, 245))
+            .corner_radius(6.)
+            .child(
+                Button::new()
+                    .on_press(move |_| {
+                        *number.write() += 1;
+                    })
+                    .child("+")
+            )
+            .child(
+                label()
+                    .text(number.read().to_string())
+                    .font_size(18.)
+            )
+            .child(
+                Button::new()
+                    .on_press(move |_| {
+                        if *number.read() > 0 {
+                            *number.write() -= 1;
+                        }
+                    })
+                    .child("-")
+            )
+    }
+}
+```
+
+## Location
+
+Defined in: `/home/daytona/workspace/source/crates/freya-core/src/element.rs:272-340`
+
+## Related
+
+- [App trait](/api/app) - Root-level application components
+- [Element trait](/api/element) - Core element interface
+- [IntoElement trait](/api/element#intoelement) - Convert types to elements
+- [Hooks](/api/hooks/use-state) - Manage component state and effects

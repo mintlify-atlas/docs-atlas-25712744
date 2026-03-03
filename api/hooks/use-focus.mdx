@@ -1,0 +1,403 @@
+---
+title: 'use_focus'
+description: 'Manage keyboard focus and accessibility for interactive elements'
+icon: 'bullseye'
+---
+
+Creates a focus handle for managing keyboard focus and accessibility state on interactive elements.
+
+## Function Signature
+
+```rust
+pub fn use_focus() -> Focus
+```
+
+## Return Type
+
+Returns a `Focus` handle that can be attached to elements to manage focus state.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn focusable_button() -> impl IntoElement {
+    let focus = use_focus();
+
+    rect()
+        .a11y_id(focus.a11y_id())
+        .a11y_focusable(true)
+        .border(if focus.is_focused() {
+            "2 solid blue"
+        } else {
+            "1 solid gray"
+        })
+        .on_click(move |_| {
+            focus.request_focus();
+        })
+        .child("Click me")
+}
+```
+
+## Focus Methods
+
+### `a11y_id()` - Get accessibility ID
+
+Returns the unique accessibility ID for this focus handle:
+
+```rust
+let focus = use_focus();
+
+rect()
+    .a11y_id(focus.a11y_id())
+    .a11y_focusable(true)
+```
+
+### `is_focused()` - Check focus state
+
+Returns `true` if this element currently has focus:
+
+```rust
+let focus = use_focus();
+
+if focus.is_focused() {
+    println!("Element is focused!");
+}
+```
+
+### `is_focused_with_keyboard()` - Check keyboard focus
+
+Returns `true` if focused via keyboard (not mouse/pointer):
+
+```rust
+let focus = use_focus();
+
+let show_outline = focus.is_focused_with_keyboard();
+
+rect()
+    .border(if show_outline {
+        "2 solid blue"  // Show outline for keyboard users
+    } else {
+        "1 solid transparent"
+    })
+```
+
+### `request_focus()` - Set focus
+
+Requests focus for this element:
+
+```rust
+let focus = use_focus();
+
+Button::new()
+    .on_press(move |_| {
+        focus.request_focus();
+    })
+```
+
+### `request_unfocus()` - Remove focus
+
+Removes focus from this element:
+
+```rust
+let focus = use_focus();
+
+Button::new()
+    .on_press(move |_| {
+        focus.request_unfocus();
+    })
+```
+
+## Focus Status Hook
+
+### `use_focus_status` - Reactive focus state
+
+Creates a reactive memoized value that tracks focus status:
+
+```rust
+use freya::prelude::*;
+
+fn button() -> impl IntoElement {
+    let focus = use_focus();
+    let focus_status = use_focus_status(focus);
+
+    rect()
+        .a11y_id(focus.a11y_id())
+        .a11y_focusable(true)
+        .background(match *focus_status.read() {
+            FocusStatus::Not => Color::GRAY,
+            FocusStatus::Pointer => Color::BLUE,    // Focused via mouse
+            FocusStatus::Keyboard => Color::GREEN,  // Focused via keyboard
+        })
+}
+```
+
+### `FocusStatus` enum
+
+```rust
+pub enum FocusStatus {
+    Not,       // Not focused
+    Pointer,   // Focused via mouse/pointer
+    Keyboard,  // Focused via keyboard
+}
+```
+
+#### Methods
+
+```rust
+let status = focus_status.read();
+
+// Check if focused (any method)
+if status.is_focused() {
+    println!("Element has focus");
+}
+```
+
+## Keyboard Interaction
+
+### `Focus::is_pressed()` - Check activation key
+
+Static method to check if a keyboard event represents an activation (Enter or Space):
+
+```rust
+use freya::prelude::*;
+
+fn button() -> impl IntoElement {
+    let focus = use_focus();
+    let mut is_active = use_state(|| false);
+
+    rect()
+        .a11y_id(focus.a11y_id())
+        .a11y_focusable(true)
+        .on_key_down(move |event| {
+            if Focus::is_pressed(&event) {
+                is_active.set(true);
+            }
+        })
+}
+```
+
+<Note>
+On macOS with VoiceOver enabled, the activation key is `Ctrl+Alt+Space` instead of just `Space`.
+</Note>
+
+## Examples
+
+### Custom focusable button
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct CustomButton {
+    label: String,
+}
+
+impl Component for CustomButton {
+    fn render(&self) -> impl IntoElement {
+        let focus = use_focus();
+        let is_focused = focus.is_focused();
+
+        rect()
+            .a11y_id(focus.a11y_id())
+            .a11y_focusable(true)
+            .a11y_role("button")
+            .padding(12)
+            .background(if is_focused { Color::BLUE } else { Color::GRAY })
+            .on_click(move |_| {
+                println!("Button clicked!");
+            })
+            .on_key_down(move |event| {
+                if Focus::is_pressed(&event) {
+                    println!("Button activated via keyboard!");
+                }
+            })
+            .child(&self.label)
+    }
+}
+```
+
+### Keyboard-only focus outline
+
+```rust
+use freya::prelude::*;
+
+fn accessible_button() -> impl IntoElement {
+    let focus = use_focus();
+
+    rect()
+        .a11y_id(focus.a11y_id())
+        .a11y_focusable(true)
+        .background(Color::BLUE)
+        .padding(12)
+        // Only show outline when focused with keyboard
+        .border(if focus.is_focused_with_keyboard() {
+            "2 solid white"
+        } else {
+            "0 solid transparent"
+        })
+        .child("Accessible Button")
+}
+```
+
+### Focus management in forms
+
+```rust
+use freya::prelude::*;
+
+fn form() -> impl IntoElement {
+    let name_focus = use_focus();
+    let email_focus = use_focus();
+
+    rect()
+        .spacing(16)
+        .child(
+            rect()
+                .a11y_id(name_focus.a11y_id())
+                .a11y_focusable(true)
+                .a11y_label("Name input")
+                .on_mounted(move |_| {
+                    // Auto-focus on mount
+                    name_focus.request_focus();
+                })
+                .child("Name: ")
+        )
+        .child(
+            rect()
+                .a11y_id(email_focus.a11y_id())
+                .a11y_focusable(true)
+                .a11y_label("Email input")
+                .on_key_down(move |event| {
+                    if event.key == Key::Named(NamedKey::Enter) {
+                        // Move to next field on Enter
+                        email_focus.request_focus();
+                    }
+                })
+                .child("Email: ")
+        )
+}
+```
+
+### Dynamic focus styles
+
+```rust
+use freya::prelude::*;
+
+fn interactive_card() -> impl IntoElement {
+    let focus = use_focus();
+    let focus_status = use_focus_status(focus);
+
+    let (background, border) = match *focus_status.read() {
+        FocusStatus::Not => (Color::WHITE, "1 solid gray"),
+        FocusStatus::Pointer => (Color::LIGHT_BLUE, "1 solid blue"),
+        FocusStatus::Keyboard => (Color::LIGHT_BLUE, "2 solid blue"),
+    };
+
+    rect()
+        .a11y_id(focus.a11y_id())
+        .a11y_focusable(true)
+        .background(background)
+        .border(border)
+        .padding(20)
+        .child("Interactive Card")
+}
+```
+
+### Focus trap (modal pattern)
+
+```rust
+use freya::prelude::*;
+
+fn modal() -> impl IntoElement {
+    let close_button_focus = use_focus();
+
+    rect()
+        .background(Color::WHITE)
+        .padding(24)
+        .on_mounted(move |_| {
+            // Focus close button when modal opens
+            close_button_focus.request_focus();
+        })
+        .child(
+            Button::new()
+                .a11y_id(close_button_focus.a11y_id())
+                .on_press(move |_| {
+                    println!("Close modal");
+                })
+                .child("Close")
+        )
+}
+```
+
+## Accessibility Integration
+
+Focus is tightly integrated with Freya's accessibility system:
+
+```rust
+let focus = use_focus();
+
+rect()
+    .a11y_id(focus.a11y_id())           // Required: Link focus to element
+    .a11y_focusable(true)                // Required: Mark as focusable
+    .a11y_role("button")                 // Screen reader role
+    .a11y_label("Submit form")           // Screen reader label
+```
+
+## When to Use
+
+Use `use_focus` when you need:
+- Custom focusable components
+- Keyboard navigation support
+- Accessibility compliance
+- Focus management in forms or modals
+- Visual focus indicators
+
+**Built-in components handle focus automatically:**
+- `Button`
+- `Input`
+- `Checkbox`
+- `Radio`
+- Most interactive components
+
+## Focus Navigation
+
+Freya handles focus navigation automatically:
+- **Tab**: Move to next focusable element
+- **Shift+Tab**: Move to previous focusable element
+- **Arrow keys**: Navigate within focus groups (when supported)
+
+## Platform Considerations
+
+### macOS with VoiceOver
+
+When VoiceOver is enabled:
+- Activation requires `Ctrl+Alt+Space` instead of just `Space`
+- Focus indicators should be high contrast
+- Use `Focus::is_pressed()` for proper activation detection
+
+### Keyboard vs. Mouse Focus
+
+Differentiate between keyboard and pointer focus for better UX:
+
+```rust
+let focus = use_focus();
+
+// Show focus ring only for keyboard users
+let show_focus_ring = focus.is_focused_with_keyboard();
+```
+
+## Best Practices
+
+1. **Always set `a11y_focusable(true)`** on elements with focus handles
+2. **Provide visible focus indicators** for keyboard users
+3. **Use `is_focused_with_keyboard()`** to avoid unnecessary focus rings for mouse users
+4. **Set `a11y_role` and `a11y_label`** for screen reader support
+5. **Auto-focus important fields** in modals or forms
+6. **Don't trap focus** unless implementing modals (and provide escape)
+7. **Test with keyboard navigation** - ensure all interactions work without a mouse
+
+## Related Hooks
+
+- **`use_focus_status`**: Reactive focus state tracking
+- **`use_editable`**: Text editing with focus support
+- **`use_state`**: For managing focus-related state

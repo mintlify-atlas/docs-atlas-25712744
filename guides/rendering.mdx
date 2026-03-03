@@ -1,0 +1,445 @@
+---
+title: Rendering Pipeline
+description: Understand Freya's rendering pipeline and Skia integration for high-performance graphics
+---
+
+Freya uses a sophisticated rendering pipeline powered by Skia (via `freya-engine`) to deliver high-performance, beautiful user interfaces. This guide explains how rendering works in Freya and how you can leverage it for custom graphics.
+
+## Rendering Overview
+
+Freya's rendering process follows these stages:
+
+1. **Component Render** - Components produce element trees
+2. **Layout Calculation** - Torin computes positions and sizes
+3. **Tree Processing** - Elements are organized by layers
+4. **Canvas Rendering** - Skia draws elements to the screen
+
+## The Render Pipeline
+
+### 1. Component Rendering
+
+When a component's `render()` function runs, it produces an element tree:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct MyComponent;
+
+impl Component for MyComponent {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .background((255, 0, 0))
+            .width(Size::px(100.))
+            .height(Size::px(100.))
+    }
+}
+```
+
+<Note>
+Component renders don't directly paint to the screen. They produce a declarative description of what should be rendered.
+</Note>
+
+### 2. Layout Phase
+
+Torin (Freya's layout engine) calculates the position and size of each element:
+
+```rust
+// Layout is computed automatically
+rect()
+    .expanded()  // Fill available space
+    .center()    // Center children
+    .child(
+        rect()
+            .width(Size::px(200.))
+            .height(Size::px(100.))
+    )
+```
+
+The layout system computes:
+- Element positions (x, y coordinates)
+- Element dimensions (width, height)
+- Visible areas (viewport clipping)
+
+### 3. Layer Organization
+
+Elements are organized into layers for proper rendering order:
+
+```rust
+rect()
+    .layer(Layer::from(1))  // Higher layers render on top
+    .background((255, 0, 0))
+```
+
+Layers determine the z-order of elements:
+- Lower layer numbers render first (background)
+- Higher layer numbers render last (foreground)
+
+### 4. Skia Rendering
+
+Finally, Skia draws each element to the canvas:
+
+```rust
+// Internal rendering process (simplified)
+for layer in sorted_layers {
+    for element in layer {
+        element.render(RenderContext {
+            canvas: &canvas,
+            layout_node: &layout,
+            scale_factor: dpi,
+            // ...
+        });
+    }
+}
+```
+
+## Custom Canvas Rendering
+
+For custom graphics, use the `canvas()` element with direct Skia access:
+
+```rust
+use freya::prelude::*;
+use skia_safe::{Paint, PaintStyle};
+
+fn app() -> impl IntoElement {
+    canvas(RenderCallback::new(|context| {
+        let area = context.layout_node.visible_area();
+        let center_x = area.center().x;
+        let center_y = area.center().y;
+
+        let mut paint = Paint::default();
+        paint.set_anti_alias(true);
+        paint.set_style(PaintStyle::Fill);
+        paint.set_color(Color::BLUE);
+
+        context
+            .canvas
+            .draw_circle((center_x, center_y), 50.0, &paint);
+    }))
+    .width(Size::percent(100.))
+    .height(Size::percent(100.))
+}
+```
+
+### RenderContext
+
+The render callback receives a `RenderContext` with:
+
+- `canvas: &Canvas` - Skia canvas for drawing
+- `layout_node: &LayoutNode` - Position and size information
+- `scale_factor: f64` - DPI scale factor
+- `font_collection: &mut FontCollection` - Font rendering
+- `tree: &Tree` - Access to the element tree
+
+### Drawing Primitives
+
+**Circles:**
+
+```rust
+canvas(RenderCallback::new(|ctx| {
+    let mut paint = Paint::default();
+    paint.set_color(Color::RED);
+    ctx.canvas.draw_circle((100.0, 100.0), 50.0, &paint);
+}))
+```
+
+**Rectangles:**
+
+```rust
+canvas(RenderCallback::new(|ctx| {
+    let mut paint = Paint::default();
+    paint.set_color(Color::GREEN);
+    let rect = skia_safe::Rect::from_xywh(50.0, 50.0, 200.0, 100.0);
+    ctx.canvas.draw_rect(rect, &paint);
+}))
+```
+
+**Lines:**
+
+```rust
+canvas(RenderCallback::new(|ctx| {
+    let mut paint = Paint::default();
+    paint.set_color(Color::BLACK);
+    paint.set_stroke_width(2.0);
+    paint.set_style(PaintStyle::Stroke);
+    ctx.canvas.draw_line((0.0, 0.0), (100.0, 100.0), &paint);
+}))
+```
+
+**Paths:**
+
+```rust
+use skia_safe::Path;
+
+canvas(RenderCallback::new(|ctx| {
+    let mut path = Path::new();
+    path.move_to((50.0, 50.0));
+    path.line_to((150.0, 50.0));
+    path.line_to((100.0, 150.0));
+    path.close();
+    
+    let mut paint = Paint::default();
+    paint.set_color(Color::BLUE);
+    ctx.canvas.draw_path(&path, &paint);
+}))
+```
+
+## Render Effects
+
+Freya supports various render effects:
+
+### Opacity
+
+Control element transparency:
+
+```rust
+rect()
+    .opacity(0.5)  // 50% transparent
+    .background((255, 0, 0))
+```
+
+Opacity is applied to the entire element and its children.
+
+### Blur
+
+Apply backdrop blur effects:
+
+```rust
+rect()
+    .blur(10.0)  // 10px blur radius
+    .background((255, 255, 255, 0.3))
+```
+
+Blur is rendered using Skia's image filters.
+
+### Rotation
+
+Rotate elements around their center:
+
+```rust
+rect()
+    .rotate(45.0)  // Rotate 45 degrees
+    .width(Size::px(100.))
+    .height(Size::px(100.))
+```
+
+### Scale
+
+Scale elements from their center:
+
+```rust
+rect()
+    .scale((1.5, 1.5))  // Scale to 150%
+    .width(Size::px(100.))
+    .height(Size::px(100.))
+```
+
+## Clipping
+
+Clip content to element bounds:
+
+```rust
+rect()
+    .overflow(Overflow::Clip)  // Clip children
+    .width(Size::px(200.))
+    .height(Size::px(100.))
+    .child(
+        rect()
+            .width(Size::px(400.))  // Will be clipped
+            .height(Size::px(200.))
+            .background((255, 0, 0))
+    )
+```
+
+### Corner Radius Clipping
+
+Clipping respects corner radius:
+
+```rust
+rect()
+    .corner_radius(12.0)
+    .overflow(Overflow::Clip)
+    .child(ImageViewer::new("image.png"))
+```
+
+## Performance Optimization
+
+### Layer Management
+
+Use layers strategically to minimize redraws:
+
+```rust
+// Static background on lower layer
+rect()
+    .layer(Layer::from(0))
+    .background((240, 240, 240))
+    .expanded()
+
+// Dynamic content on higher layer
+rect()
+    .layer(Layer::from(1))
+    .child(animated_content)
+```
+
+### Avoid Overdraw
+
+Minimize overlapping opaque elements:
+
+```rust
+// Bad - unnecessary background
+rect()
+    .background((255, 255, 255))  // Will be covered
+    .child(
+        rect()
+            .background((0, 0, 0))  // Covers parent
+            .expanded()
+    )
+
+// Good - only one background
+rect()
+    .child(
+        rect()
+            .background((0, 0, 0))
+            .expanded()
+    )
+```
+
+### Efficient Effects
+
+- Use blur sparingly - it's expensive
+- Avoid unnecessary opacity changes
+- Cache complex paths when possible
+
+## Render Batching
+
+Freya automatically batches renders for efficiency:
+
+```rust
+// Multiple state updates in the same frame
+// are batched into a single render
+let mut count = use_state(|| 0);
+
+move || {
+    count.write().add_assign(1);  // Update 1
+    count.write().add_assign(1);  // Update 2
+    count.write().add_assign(1);  // Update 3
+    // Only one render occurs
+}
+```
+
+## Advanced Rendering
+
+### Custom Element Rendering
+
+For advanced use cases, you can implement custom element rendering.
+
+### Image Rendering
+
+Render images efficiently:
+
+```rust
+ImageViewer::new("path/to/image.png")
+    .width(Size::px(300.))
+    .height(Size::px(200.))
+    .aspect_ratio(AspectRatio::Cover)
+```
+
+### SVG Rendering
+
+```rust
+Svg::new(svg_data)
+    .width(Size::px(200.))
+    .height(Size::px(200.))
+```
+
+### Text Rendering
+
+Text is rendered using Skia's text rendering:
+
+```rust
+label()
+    .text("High-quality text rendering")
+    .font_size(24)
+    .color((0, 0, 0))
+```
+
+## Debugging Rendering
+
+### Debug Overlay
+
+Enable debug rendering to visualize layout:
+
+```rust
+rect()
+    .debug_overlay(true)  // Shows element bounds
+```
+
+### Render Stats
+
+Monitor rendering performance:
+
+```rust
+// FPS and render time information
+// Available in debug builds
+```
+
+## Best Practices
+
+1. **Use built-in elements when possible** - They're optimized for common use cases
+
+2. **Minimize custom canvas usage** - Only use it when necessary
+
+3. **Batch updates** - Update multiple state values before triggering a render
+
+4. **Profile performance** - Use profiling tools to identify bottlenecks
+
+5. **Respect layers** - Use appropriate layer values for proper z-ordering
+
+6. **Test on target hardware** - Performance varies across devices
+
+## Common Patterns
+
+### Animated Graphics
+
+```rust
+use freya::prelude::*;
+
+fn animated_circle() -> impl IntoElement {
+    let mut progress = use_animation(|| 0.0, AnimationMode::Infinity);
+    
+    canvas(RenderCallback::new(move |ctx| {
+        let area = ctx.layout_node.visible_area();
+        let radius = 50.0 * progress.get();
+        
+        let mut paint = Paint::default();
+        paint.set_color(Color::BLUE);
+        ctx.canvas.draw_circle(
+            (area.center().x, area.center().y),
+            radius,
+            &paint
+        );
+    }))
+    .expanded()
+}
+```
+
+### Custom Charts
+
+For charts and graphs, use the plotters backend:
+
+```rust
+use freya::prelude::*;
+use freya_plotters_backend::FreyaBackend;
+
+canvas(RenderCallback::new(|ctx| {
+    let backend = FreyaBackend::new(ctx);
+    // Draw charts using plotters API
+}))
+```
+
+## Next Steps
+
+- Learn about [Layouts](/guides/layouts) for positioning elements
+- Explore [Styling](/guides/styling) for visual effects
+- Check out the [Canvas API](/api/elements/rect) reference
+- Read about [Performance Optimization](/guides/rendering)

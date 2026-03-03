@@ -1,0 +1,290 @@
+---
+title: Shadow
+description: Shadow effects for elements in Freya.
+---
+
+## Overview
+
+The `Shadow` type creates drop shadow and inset shadow effects for elements. You can control position, blur, spread, and color.
+
+## Creating Shadows
+
+### Basic Shadow
+
+```rust
+use freya::prelude::*;
+
+let shadow = Shadow::new()
+    .x(10.0)
+    .y(10.0)
+    .blur(5.0)
+    .color(Color::BLACK);
+```
+
+### From Tuple
+
+Create a shadow from a tuple:
+
+```rust
+// (x, y, blur, spread, color)
+let shadow: Shadow = (10.0, 10.0, 5.0, 0.0, Color::BLACK).into();
+let shadow: Shadow = (10.0, 10.0, 5.0, 0.0, (0, 0, 0, 0.5)).into();
+```
+
+## Shadow Properties
+
+### Position (X, Y)
+
+Control shadow offset:
+
+```rust
+let shadow = Shadow::new()
+    .x(24.0)   // Horizontal offset
+    .y(24.0);  // Vertical offset
+```
+
+### Blur
+
+Control blur amount:
+
+```rust
+let shadow = Shadow::new()
+    .blur(8.0);  // Blur radius
+```
+
+### Spread
+
+Control shadow expansion:
+
+```rust
+let shadow = Shadow::new()
+    .spread(4.0);  // Positive = expand, negative = contract
+```
+
+### Color
+
+Set shadow color:
+
+```rust
+// From Color
+let shadow = Shadow::new()
+    .color(Color::from_rgb(0, 0, 0));
+
+// From tuple
+let shadow = Shadow::new()
+    .color((0, 0, 0, 0.3));  // Semi-transparent black
+```
+
+### Position Type
+
+Control whether shadow is outside or inside:
+
+```rust
+use freya::prelude::*;
+
+// Normal (drop shadow) - default
+let shadow = Shadow::new()
+    .normal()
+    .x(10.0)
+    .y(10.0)
+    .blur(5.0)
+    .color((0, 0, 0, 0.5));
+
+// Inset (inner shadow)
+let shadow = Shadow::new()
+    .inset()
+    .blur(8.0)
+    .color((255, 0, 0));
+
+// Or use position method
+let shadow = Shadow::new()
+    .position(ShadowPosition::Inset);
+```
+
+## Usage Examples
+
+### Drop Shadow
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .width(Size::px(80.0))
+        .height(Size::px(80.0))
+        .background(Color::WHITE)
+        .shadow(Shadow::new()
+            .x(24.0)
+            .y(24.0)
+            .blur(8.0)
+            .color((0, 0, 0, 0.3))
+        )
+}
+```
+
+### Inset Shadow
+
+```rust
+fn app() -> impl IntoElement {
+    rect()
+        .width(Size::px(80.0))
+        .height(Size::px(80.0))
+        .background(Color::LIGHT_GRAY)
+        .shadow(Shadow::new()
+            .blur(8.0)
+            .color((255, 0, 0))
+            .inset()
+        )
+}
+```
+
+### Multiple Shadows
+
+You can apply multiple shadows to a single element:
+
+```rust
+fn app() -> impl IntoElement {
+    rect()
+        .width(Size::px(80.0))
+        .height(Size::px(80.0))
+        .shadow(Shadow::new()
+            .x(24.0)
+            .y(24.0)
+            .blur(8.0)
+            .color((0, 0, 0, 0.3))
+        )
+        .shadow(Shadow::new()
+            .x(-24.0)
+            .y(-24.0)
+            .blur(8.0)
+            .color((0, 255, 0, 0.3))
+        )
+}
+```
+
+### Elevation Effect
+
+Create material-design style elevation:
+
+```rust
+fn elevated_card() -> impl IntoElement {
+    rect()
+        .width(Size::px(300.0))
+        .height(Size::px(200.0))
+        .corner_radius(8.0)
+        .background(Color::WHITE)
+        .shadow(Shadow::new()
+            .y(2.0)
+            .blur(4.0)
+            .color((0, 0, 0, 0.1))
+        )
+        .shadow(Shadow::new()
+            .y(4.0)
+            .blur(8.0)
+            .color((0, 0, 0, 0.15))
+        )
+}
+```
+
+### Glow Effect
+
+Create a glow by spreading shadow:
+
+```rust
+fn glowing_button() -> impl IntoElement {
+    rect()
+        .width(Size::px(150.0))
+        .height(Size::px(50.0))
+        .corner_radius(25.0)
+        .background(Color::BLUE)
+        .shadow(Shadow::new()
+            .blur(20.0)
+            .spread(5.0)
+            .color((0, 100, 255, 0.6))
+        )
+}
+```
+
+### Neumorphic Style
+
+Create neumorphic (soft UI) effects:
+
+```rust
+fn neumorphic_box() -> impl IntoElement {
+    rect()
+        .width(Size::px(200.0))
+        .height(Size::px(200.0))
+        .corner_radius(20.0)
+        .background(Color::from_rgb(220, 220, 220))
+        // Light shadow (top-left)
+        .shadow(Shadow::new()
+            .x(-8.0)
+            .y(-8.0)
+            .blur(16.0)
+            .color((255, 255, 255, 0.8))
+        )
+        // Dark shadow (bottom-right)
+        .shadow(Shadow::new()
+            .x(8.0)
+            .y(8.0)
+            .blur(16.0)
+            .color((0, 0, 0, 0.2))
+        )
+}
+```
+
+## Text Shadow
+
+For text elements, use `TextShadow`:
+
+```rust
+use freya::prelude::*;
+
+let text_shadow = TextShadow::new(
+    Color::from_rgb(0, 0, 0),  // Color
+    (2.0, 2.0),                 // Offset (x, y)
+    1.0                         // Blur sigma
+);
+
+fn app() -> impl IntoElement {
+    text("Shadowed Text")
+        .text_shadow(text_shadow)
+}
+```
+
+## Shadow Position Types
+
+```rust
+pub enum ShadowPosition {
+    Normal,  // Drop shadow (default)
+    Inset,   // Inner shadow
+}
+```
+
+## Performance Considerations
+
+- Shadows with large blur radii are more expensive to render
+- Multiple shadows increase rendering cost
+- Consider using simpler shadows for frequently updated elements
+- Inset shadows may have different performance characteristics
+
+## Pretty Printing
+
+Shadows have debug representations:
+
+```rust
+let shadow = Shadow::new()
+    .x(10.0)
+    .y(10.0)
+    .blur(5.0)
+    .spread(2.0)
+    .normal();
+
+println!("{}", shadow); // "Normal 10 10 5 2"
+```
+
+## See Also
+
+- [Colors](/api/styling/colors)
+- [Borders](/api/styling/borders)
+- [Text Styling](/guides/styling)

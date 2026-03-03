@@ -1,0 +1,256 @@
+---
+title: App & app function
+description: Define root-level application components and entry points
+---
+
+The `App` trait and `app` function pattern are used to define the root component of a Freya application.
+
+## App Trait
+
+The `App` trait is designed for root-level application components. Types implementing `App` automatically implement `Component` and have a blanket `PartialEq` implementation that always returns true.
+
+### Trait Definition
+
+```rust
+pub trait App: 'static {
+    fn render(&self) -> impl IntoElement;
+}
+```
+
+<ParamField path="render" type="fn(&self) -> impl IntoElement" required>
+  The render method that returns the root element tree of your application.
+</ParamField>
+
+### Characteristics
+
+- Automatically implements `Component` trait
+- Has a blanket `PartialEq` implementation that always returns `true`
+- Designed for root-level components that don't need to track changes
+- Can hold application-level state as struct fields
+
+### Struct-based App Example
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(WindowConfig::new_app(MyApp { value: 4 }))
+    )
+}
+
+struct MyApp {
+    value: u8,
+}
+
+impl App for MyApp {
+    fn render(&self) -> impl IntoElement {
+        format!("Value is {}", self.value)
+    }
+}
+```
+
+### WindowConfig::new_app
+
+```rust
+impl WindowConfig {
+    pub fn new_app(app: impl App + 'static) -> Self
+}
+```
+
+<ParamField path="app" type="impl App" required>
+  An instance of a type that implements the App trait.
+</ParamField>
+
+Creates a window configuration with an `App` implementation directly.
+
+## app Function Pattern
+
+The more common pattern is to define an `app` function that returns `impl IntoElement`. This function is passed to `WindowConfig::new()`.
+
+### Function Signature
+
+```rust
+fn app() -> impl IntoElement
+```
+
+**Returns:** Any type that implements `IntoElement`, typically an `Element` created by calling element functions like `rect()`, `label()`, or component constructors.
+
+### Basic Example
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(WindowConfig::new(app))
+    )
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .center()
+        .child("Hello, World!")
+}
+```
+
+### With Hooks
+
+The `app` function creates a reactive scope, allowing you to use hooks:
+
+```rust
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 0);
+
+    rect()
+        .expanded()
+        .center()
+        .horizontal()
+        .spacing(8.)
+        .child(
+            Button::new()
+                .on_press(move |_| {
+                    *count.write() += 1;
+                })
+                .child("Increment")
+        )
+        .child(label().text(format!("Count: {}", count.read())))
+}
+```
+
+### With Components
+
+```rust
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .center()
+        .horizontal()
+        .child(CoolComponent(2))
+        .child(CoolComponent(23))
+        .child(CoolComponent(34))
+}
+
+#[derive(PartialEq)]
+struct CoolComponent(i32);
+
+impl Component for CoolComponent {
+    fn render(&self) -> impl IntoElement {
+        let mut state = use_state(|| self.0);
+
+        let increase = move |_| {
+            *state.write() += 1;
+        };
+
+        Button::new()
+            .on_press(increase)
+            .child(format!("Value: {}", state.read()))
+    }
+}
+```
+
+## AppComponent
+
+`AppComponent` is an internal wrapper for `App` components that enables conversion from closures.
+
+### From Closure
+
+```rust
+impl<F, E> From<F> for AppComponent
+where
+    F: Fn() -> E + 'static,
+    E: IntoElement,
+```
+
+This allows function pointers to be converted to `AppComponent`, which is why you can pass `app` directly to `WindowConfig::new()`.
+
+## App vs Component
+
+| Feature | App | Component |
+|---------|-----|----------|
+| **Purpose** | Root-level application entry point | Reusable UI pieces |
+| **PartialEq** | Always returns `true` | Must be manually implemented |
+| **Typical usage** | Once per window | Multiple instances |
+| **State in struct** | Common for app-level config | Common for component props |
+| **Hooks** | Can use in `render()` | Can use in `render()` |
+
+## When to Use App vs app function
+
+### Use the App trait when:
+- You need to pass initial configuration to your root component
+- You want to encapsulate application-level state in a struct
+- You're building a multi-window application with different root components
+
+### Use an app function when:
+- You have a simple single-window application
+- You don't need to pass initial configuration
+- This is the most common pattern
+
+## Complete Example
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(
+                WindowConfig::new(app)
+                    .with_size(500., 450.)
+                    .with_title("Counter App")
+            )
+    )
+}
+
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 4);
+
+    let counter = rect()
+        .width(Size::fill())
+        .height(Size::percent(50.))
+        .center()
+        .color((255, 255, 255))
+        .background((15, 163, 242))
+        .font_weight(FontWeight::BOLD)
+        .font_size(75.)
+        .shadow((0., 4., 20., 4., (0, 0, 0, 80)))
+        .child(count.read().to_string());
+
+    let actions = rect()
+        .horizontal()
+        .width(Size::fill())
+        .height(Size::percent(50.))
+        .center()
+        .spacing(8.0)
+        .child(
+            Button::new()
+                .on_press(move |_| {
+                    *count.write() += 1;
+                })
+                .child("Increase"),
+        )
+        .child(
+            Button::new()
+                .on_press(move |_| {
+                    *count.write() -= 1;
+                })
+                .child("Decrease"),
+        );
+
+    rect().child(counter).child(actions)
+}
+```
+
+## Location
+
+Defined in: `/home/daytona/workspace/source/crates/freya-core/src/element.rs:227-270`
+
+## Related
+
+- [launch](/api/launch) - Launch the application
+- [Component trait](/api/component) - Create reusable components
+- [Element trait](/api/element) - Core element interface
+- [IntoElement trait](/api/element#intoelement) - Convert types to elements

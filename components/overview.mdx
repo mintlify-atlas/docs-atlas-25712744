@@ -1,0 +1,88 @@
+---
+title: Built-in Components
+description: Overview of Freya's built-in UI components
+---
+
+Freya provides a comprehensive set of built-in components that make it easy to build beautiful and functional user interfaces. All components are designed with accessibility, theming, and performance in mind.
+
+## Form Controls
+
+<CardGroup cols={2}>
+  <Card title="Button" icon="hand-pointer" href="/components/button">
+    Interactive button component with multiple style variants
+  </Card>
+  <Card title="Input" icon="keyboard" href="/components/input">
+    Text input field with validation and different modes
+  </Card>
+  <Card title="Checkbox" icon="square-check" href="/components/checkbox">
+    Checkbox for boolean selections
+  </Card>
+  <Card title="Slider" icon="sliders" href="/components/slider">
+    Slider for selecting numeric values from a range
+  </Card>
+</CardGroup>
+
+## Data Display
+
+<CardGroup cols={2}>
+  <Card title="Table" icon="table" href="/components/table">
+    Display tabular data with sortable columns
+  </Card>
+  <Card title="ScrollView" icon="arrows-up-down" href="/components/scrollview">
+    Scrollable container with virtual scrolling support
+  </Card>
+</CardGroup>
+
+## Date & Color
+
+<CardGroup cols={2}>
+  <Card title="Calendar" icon="calendar" href="/components/calendar">
+    Date picker with month/year navigation
+  </Card>
+  <Card title="ColorPicker" icon="palette" href="/components/color-picker">
+    HSV-based color picker with gradient interface
+  </Card>
+</CardGroup>
+
+## Media & Graphics
+
+<CardGroup cols={2}>
+  <Card title="ImageViewer" icon="image" href="/components/image-viewer">
+    Display images from URLs, paths, or embedded bytes
+  </Card>
+  <Card title="Canvas" icon="paintbrush" href="/components/canvas">
+    Custom drawing area with direct rendering access
+  </Card>
+</CardGroup>
+
+## Component Features
+
+All Freya components share common features:
+
+- **Theming**: Customize appearance using theme props
+- **Accessibility**: Built-in ARIA roles and keyboard navigation
+- **Reactive**: Automatic updates when state changes
+- **Performant**: Optimized rendering and diffing
+- **Type-safe**: Full Rust type safety
+
+## Usage Pattern
+
+Components in Freya follow a builder pattern:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    Button::new()
+        .on_press(|_| println!("Clicked!"))
+        .filled()
+        .child("Click me")
+}
+```
+
+Most components support:
+- Method chaining for configuration
+- State management via `use_state`
+- Event handlers like `on_press`, `on_change`
+- Layout properties like `width()`, `height()`
+- Styling variants like `filled()`, `outline()`

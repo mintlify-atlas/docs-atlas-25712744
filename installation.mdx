@@ -1,0 +1,296 @@
+---
+title: Installation
+description: Set up your development environment for Freya
+---
+
+# Installation
+
+This guide will help you set up everything needed to start building applications with Freya.
+
+## Prerequisites
+
+<Note>
+  Make sure you have [Rust](https://www.rust-lang.org/) installed. If you don't have it yet, visit [rustup.rs](https://rustup.rs/) to install the Rust toolchain.
+</Note>
+
+## Platform-Specific Setup
+
+<Tabs>
+  <Tab title="Windows">
+    ### Windows Requirements
+
+    Install **Visual Studio 2022** with the "Desktop Development with C++" workflow.
+
+    <Steps>
+      <Step title="Download Visual Studio 2022">
+        Download the [Visual Studio 2022 Community Edition](https://visualstudio.microsoft.com/downloads/) installer.
+      </Step>
+      
+      <Step title="Install C++ Development Tools">
+        During installation, select the **"Desktop Development with C++"** workload. This includes:
+        - MSVC C++ compiler
+        - Windows SDK
+        - CMake tools
+      </Step>
+      
+      <Step title="Verify Installation">
+        Open a new terminal and verify your Rust installation:
+        ```bash
+        rustc --version
+        cargo --version
+        ```
+      </Step>
+    </Steps>
+
+    <Warning>
+      If you're using `windows-gnu` toolchain and encounter compile errors, check [this issue](https://github.com/marc2332/freya/issues/794) for potential solutions.
+    </Warning>
+
+  </Tab>
+  
+  <Tab title="macOS">
+    ### macOS Requirements
+
+    macOS typically requires no additional setup beyond Rust itself. However, make sure you have the Xcode Command Line Tools installed.
+
+    <Steps>
+      <Step title="Install Xcode Command Line Tools">
+        Open Terminal and run:
+        ```bash
+        xcode-select --install
+        ```
+      </Step>
+      
+      <Step title="Verify Installation">
+        Verify your Rust installation:
+        ```bash
+        rustc --version
+        cargo --version
+        ```
+      </Step>
+    </Steps>
+
+    <Note>
+      If you encounter any issues specific to macOS, please [open an issue](https://github.com/marc2332/freya/issues) so we can update this guide.
+    </Note>
+
+  </Tab>
+  
+  <Tab title="Linux">
+    ### Linux Requirements
+
+    Linux requires several development packages depending on your distribution.
+
+    <Tabs>
+      <Tab title="Debian/Ubuntu">
+        For Debian-based distributions (Ubuntu, Pop!_OS, Linux Mint, etc.):
+
+        ```bash
+        sudo apt install build-essential libssl-dev pkg-config cmake libgtk-3-dev libclang-dev
+        ```
+
+        Then verify Rust is installed:
+        ```bash
+        rustc --version
+        cargo --version
+        ```
+      </Tab>
+      
+      <Tab title="Arch Linux">
+        For Arch Linux and derivatives:
+
+        ```bash
+        sudo pacman -S base-devel openssl cmake gtk3 clang
+        ```
+
+        Then verify Rust is installed:
+        ```bash
+        rustc --version
+        cargo --version
+        ```
+      </Tab>
+      
+      <Tab title="Fedora">
+        For Fedora and RHEL-based distributions:
+
+        ```bash
+        sudo dnf install openssl-devel clang-devel systemd-devel gtk3-devel @development-tools -y
+        ```
+
+        Then verify Rust is installed:
+        ```bash
+        rustc --version
+        cargo --version
+        ```
+      </Tab>
+      
+      <Tab title="NixOS">
+        For NixOS users:
+
+        You can use this [flake.nix](https://github.com/kuba375/freya-flake) configuration. Copy it to your project root and enter the dev shell:
+
+        ```bash
+        nix develop
+        ```
+
+        <Note>
+          The Freya repository also includes a `flake.nix` that you can reference.
+        </Note>
+      </Tab>
+    </Tabs>
+
+    <Note>
+      Don't see your distribution? Please contribute by [opening a PR](https://github.com/marc2332/freya/pulls) to add instructions for your distro.
+    </Note>
+
+  </Tab>
+</Tabs>
+
+## Creating a New Project
+
+Once you have the platform dependencies installed, create a new Rust project:
+
+<Steps>
+  <Step title="Create a new binary project">
+    ```bash
+    cargo new my-freya-app
+    cd my-freya-app
+    ```
+  </Step>
+  
+  <Step title="Add Freya as a dependency">
+    Add Freya to your `Cargo.toml`:
+
+    <CodeGroup>
+      ```toml Stable Release
+      [dependencies]
+      freya = "0.4.0-rc.11"
+      ```
+
+      ```toml Main Branch (Latest)
+      [dependencies]
+      freya = { git = "https://github.com/marc2332/freya", branch = "main" }
+      ```
+    </CodeGroup>
+
+    <Note>
+      The main branch contains the latest features but may have breaking changes. Use stable releases for production applications.
+    </Note>
+  </Step>
+  
+  <Step title="Write your first app">
+    Replace the contents of `src/main.rs` with:
+
+    ```rust
+    #![cfg_attr(
+        all(not(debug_assertions), target_os = "windows"),
+        windows_subsystem = "windows"
+    )]
+
+    use freya::prelude::*;
+
+    fn main() {
+        launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+    }
+
+    fn app() -> impl IntoElement {
+        rect()
+            .center()
+            .expanded()
+            .child("Hello, Freya!")
+    }
+    ```
+  </Step>
+  
+  <Step title="Run your application">
+    ```bash
+    cargo run
+    ```
+
+    You should see a window with "Hello, Freya!" displayed in the center.
+  </Step>
+</Steps>
+
+## Optional Features
+
+Freya supports optional features that you can enable based on your needs:
+
+```toml
+[dependencies]
+freya = { version = "0.4.0-rc.11", features = ["router", "i18n", "icons"] }
+```
+
+<AccordionGroup>
+  <Accordion title="Available Features">
+    - `router` - Type-safe routing with freya-router
+    - `i18n` - Internationalization support with Fluent
+    - `icons` - Icon library (Lucide icons)
+    - `radio` - Global state management with freya-radio
+    - `sdk` - Additional utilities and integrations
+    - `material-design` - Material Design components and effects
+    - `webview` - Embed web content in your app
+    - `terminal` - Terminal emulation support
+    - `code-editor` - Code editor with syntax highlighting
+    - `plot` - Charting and data visualization with Plotters
+    - `calendar` - Calendar component
+    - `markdown` - Markdown rendering
+    - `gif` - GIF animation support
+    - `devtools` - Developer tools for debugging
+    - `performance` - Performance monitoring
+    - `all` - Enable all features (except devtools)
+  </Accordion>
+</AccordionGroup>
+
+## Known Issues
+
+<Warning>
+  **Custom Linkers**: The following custom linkers are currently not supported:
+  - `mold`
+
+  If you encounter issues with other linkers, please [report them](https://github.com/marc2332/freya/issues).
+</Warning>
+
+## Testing Your Setup
+
+To verify everything is working correctly, try running one of the examples from the Freya repository:
+
+```bash
+# Clone the repository
+git clone https://github.com/marc2332/freya
+cd freya
+
+# Initialize submodules (required)
+git submodule update --init --recursive
+
+# Run the counter example
+cargo run --example counter
+```
+
+If the counter example runs successfully, your environment is ready for development!
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start Tutorial"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Build your first interactive app with our step-by-step guide
+  </Card>
+  <Card
+    title="Browse Examples"
+    icon="code"
+    href="https://github.com/marc2332/freya/tree/main/examples"
+  >
+    Explore 100+ examples covering all features
+  </Card>
+</CardGroup>
+
+## Getting Help
+
+If you encounter any issues during installation:
+
+- Check the [GitHub Issues](https://github.com/marc2332/freya/issues) for similar problems
+- Ask for help in the [Discord community](https://discord.gg/sYejxCdewG)
+- Review the [API documentation](https://docs.rs/freya/) for detailed information

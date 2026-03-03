@@ -1,0 +1,540 @@
+---
+title: Layers
+description: Control the rendering order and z-index of elements in Freya
+---
+
+## Overview
+
+Layers control the **rendering order** (z-index) of elements in Freya. Elements in higher layers are rendered on top of those in lower layers, allowing you to create overlays, modals, tooltips, and other UI that needs to appear above other content.
+
+<Note>
+  Think of layers like z-index in CSS - they determine which elements appear on top when elements overlap.
+</Note>
+
+## How Layers Work
+
+Every element in Freya has a layer value that determines its rendering order:
+
+- **Higher layer values** render on top
+- **Lower layer values** render underneath
+- Elements in the **same layer** have no guaranteed order
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .child(
+            rect()
+                .background((255, 0, 0))
+                .layer(-1)  // Renders underneath
+        )
+        .child(
+            rect()
+                .background((0, 255, 0))
+                // Default layer (0)
+        )
+        .child(
+            rect()
+                .background((0, 0, 255))
+                .layer(1)  // Renders on top
+        )
+}
+```
+
+## Layer Types
+
+Freya provides three layer variants:
+
+<CardGroup cols={3}>
+  <Card title="Relative" icon="layer-group">
+    `Layer::Relative(i16)` - Offset from parent's layer
+  </Card>
+  <Card title="Overlay" icon="window-maximize">
+    `Layer::Overlay` - Jump to high layer for modals
+  </Card>
+  <Card title="RelativeOverlay" icon="up-right-from-square">
+    `Layer::RelativeOverlay(u8)` - Multiple overlay levels
+  </Card>
+</CardGroup>
+
+### Relative Layers
+
+The default layer type. Values are relative to the parent element's layer:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()  // Layer 0 (default)
+        .child(
+            rect()
+                .layer(-1)  // Layer -1 (0 + (-1))
+                .child("Background")
+        )
+        .child(
+            rect()
+                // Layer 0 (0 + 0)
+                .child("Content")
+        )
+        .child(
+            rect()
+                .layer(1)  // Layer 1 (0 + 1)
+                .child("Foreground")
+        )
+}
+```
+
+<Tip>
+  Use small positive/negative numbers for `Relative` layers (like -1, 0, 1) to keep your layer hierarchy manageable.
+</Tip>
+
+### Overlay Layer
+
+Use `Layer::Overlay` to jump to a very high layer - perfect for modals and dialogs:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Modal;
+
+impl Component for Modal {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .layer(Layer::Overlay)  // Renders above everything
+            .width(Size::fill())
+            .height(Size::fill())
+            .background((0, 0, 0, 180))  // Semi-transparent backdrop
+            .center()
+            .child(
+                rect()
+                    .width(Size::px(400.))
+                    .height(Size::px(300.))
+                    .background((255, 255, 255))
+                    .corner_radius(CornerRadius::new(8.))
+                    .child("Modal content")
+            )
+    }
+}
+```
+
+### RelativeOverlay Layers
+
+For fine-grained control over multiple overlays:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .child(
+            rect()
+                .layer(Layer::RelativeOverlay(0))  // First overlay level
+                .child("Modal backdrop")
+        )
+        .child(
+            rect()
+                .layer(Layer::RelativeOverlay(1))  // Second overlay level
+                .child("Tooltip on modal")
+        )
+        .child(
+            rect()
+                .layer(Layer::RelativeOverlay(2))  // Third overlay level
+                .child("Context menu on tooltip")
+        )
+}
+```
+
+## Common Use Cases
+
+### Dropdown Menu
+
+Ensure dropdown content appears above other elements:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Dropdown;
+
+impl Component for Dropdown {
+    fn render(&self) -> impl IntoElement {
+        let mut open = use_state(|| false);
+
+        rect()
+            .child(
+                Button::new()
+                    .on_press(move |_| open.set(!open.read()))
+                    .child("Open Menu")
+            )
+            .child(
+                if *open.read() {
+                    rect()
+                        .layer(Layer::Overlay)  // Appears above everything
+                        .background((255, 255, 255))
+                        .border(Border::all((1., (200, 200, 200, 255))))
+                        .corner_radius(CornerRadius::new(4.))
+                        .padding(Gaps::new_all(8.))
+                        .child("Menu Item 1")
+                        .child("Menu Item 2")
+                        .child("Menu Item 3")
+                } else {
+                    rect()  // Empty when closed
+                }
+            )
+    }
+}
+```
+
+### Tooltip
+
+Show tooltips above content:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct TooltipButton;
+
+impl Component for TooltipButton {
+    fn render(&self) -> impl IntoElement {
+        let mut hover = use_state(|| false);
+
+        rect()
+            .child(
+                rect()
+                    .on_mouse_over(move |_| hover.set(true))
+                    .on_mouse_leave(move |_| hover.set(false))
+                    .background((100, 100, 255))
+                    .padding(Gaps::new_all(12.))
+                    .child("Hover me")
+            )
+            .child(
+                if *hover.read() {
+                    rect()
+                        .layer(Layer::Overlay)
+                        .background((0, 0, 0, 230))
+                        .color((255, 255, 255))
+                        .padding(Gaps::new_all(8.))
+                        .corner_radius(CornerRadius::new(4.))
+                        .child("This is a tooltip")
+                } else {
+                    rect()
+                }
+            )
+    }
+}
+```
+
+### Loading Overlay
+
+Show loading state over entire app:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct App;
+
+impl Component for App {
+    fn render(&self) -> impl IntoElement {
+        let loading = use_state(|| false);
+
+        rect()
+            // Main content
+            .child(
+                rect()
+                    .expanded()
+                    .child("Main app content")
+            )
+            // Loading overlay
+            .child(
+                if *loading.read() {
+                    rect()
+                        .layer(Layer::Overlay)
+                        .width(Size::fill())
+                        .height(Size::fill())
+                        .background((0, 0, 0, 150))
+                        .center()
+                        .child(
+                            rect()
+                                .background((255, 255, 255))
+                                .padding(Gaps::new_all(20.))
+                                .corner_radius(CornerRadius::new(8.))
+                                .child("Loading...")
+                        )
+                } else {
+                    rect()
+                }
+            )
+    }
+}
+```
+
+### Notification Toast
+
+Show temporary notifications:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Toast {
+    message: String,
+}
+
+impl Component for Toast {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .layer(Layer::RelativeOverlay(1))  // Above modals
+            .width(Size::px(300.))
+            .background((40, 40, 40))
+            .color((255, 255, 255))
+            .padding(Gaps::new_all(16.))
+            .corner_radius(CornerRadius::new(8.))
+            .shadow((0., 4., 12., 0., (0, 0, 0, 100)))
+            .child(&self.message)
+    }
+}
+```
+
+## Layer Hierarchy Example
+
+Here's a complete example showing multiple layer levels:
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    let mut show_modal = use_state(|| false);
+    let mut show_tooltip = use_state(|| false);
+
+    rect()
+        .expanded()
+        // Background pattern (layer -1)
+        .child(
+            rect()
+                .layer(-1)
+                .width(Size::fill())
+                .height(Size::fill())
+                .background((240, 240, 240))
+                .child("Background")
+        )
+        // Main content (layer 0)
+        .child(
+            rect()
+                .center()
+                .child(
+                    Button::new()
+                        .on_press(move |_| show_modal.set(true))
+                        .child("Open Modal")
+                )
+        )
+        // Floating action button (layer 1)
+        .child(
+            rect()
+                .layer(1)
+                .width(Size::px(60.))
+                .height(Size::px(60.))
+                .background((255, 100, 100))
+                .corner_radius(CornerRadius::new(30.))
+                .center()
+                .on_mouse_over(move |_| show_tooltip.set(true))
+                .on_mouse_leave(move |_| show_tooltip.set(false))
+                .child("+")
+        )
+        // Tooltip (Overlay)
+        .child(
+            if *show_tooltip.read() {
+                rect()
+                    .layer(Layer::Overlay)
+                    .background((0, 0, 0, 230))
+                    .color((255, 255, 255))
+                    .padding(Gaps::new_all(8.))
+                    .corner_radius(CornerRadius::new(4.))
+                    .child("Add new item")
+            } else {
+                rect()
+            }
+        )
+        // Modal (Overlay)
+        .child(
+            if *show_modal.read() {
+                rect()
+                    .layer(Layer::Overlay)
+                    .width(Size::fill())
+                    .height(Size::fill())
+                    .background((0, 0, 0, 180))
+                    .center()
+                    .on_mouse_up(move |_| show_modal.set(false))
+                    .child(
+                        rect()
+                            .width(Size::px(400.))
+                            .height(Size::px(300.))
+                            .background((255, 255, 255))
+                            .corner_radius(CornerRadius::new(12.))
+                            .padding(Gaps::new_all(20.))
+                            .child("Modal Content")
+                    )
+            } else {
+                rect()
+            }
+        )
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Overlay for modals and dialogs">
+    Always use `Layer::Overlay` for UI that must appear above everything:
+    
+    ```rust
+    rect()
+        .layer(Layer::Overlay)
+        .child("Modal content")
+    ```
+  </Accordion>
+
+  <Accordion title="Keep relative layers simple">
+    Use small offsets (-1, 0, 1, 2) instead of large numbers:
+    
+    ```rust
+    // ✅ Good
+    rect().layer(-1)  // Background
+    rect()            // Default
+    rect().layer(1)   // Foreground
+    
+    // ❌ Avoid
+    rect().layer(-100)
+    rect().layer(999)
+    ```
+  </Accordion>
+
+  <Accordion title="Elements in same layer are unordered">
+    Don't rely on render order within the same layer:
+    
+    ```rust
+    // ❌ Bad - both at layer 0, order not guaranteed
+    rect().child(rect().background(Color::RED))
+         .child(rect().background(Color::BLUE))
+    
+    // ✅ Good - explicit layers
+    rect().child(rect().layer(0).background(Color::RED))
+         .child(rect().layer(1).background(Color::BLUE))
+    ```
+  </Accordion>
+
+  <Accordion title="Use RelativeOverlay for stacked overlays">
+    When you have multiple overlay levels:
+    
+    ```rust
+    rect()
+        .layer(Layer::RelativeOverlay(0))  // Base modal
+        .child(
+            rect()
+                .layer(Layer::RelativeOverlay(1))  // Dropdown on modal
+        )
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Common Patterns
+
+### Portal Pattern
+
+Render content at a specific layer regardless of component hierarchy:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Portal {
+    content: Element,
+}
+
+impl Component for Portal {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .layer(Layer::Overlay)
+            .child(self.content.clone())
+    }
+}
+```
+
+### Z-Index Stack
+
+Manage multiple layers systematically:
+
+```rust
+use freya::prelude::*;
+
+// Define layer constants
+const BACKGROUND: i16 = -1;
+const CONTENT: i16 = 0;
+const SIDEBAR: i16 = 1;
+const DROPDOWN: i16 = 2;
+
+fn app() -> impl IntoElement {
+    rect()
+        .child(rect().layer(BACKGROUND))
+        .child(rect().layer(CONTENT))
+        .child(rect().layer(SIDEBAR))
+        .child(rect().layer(DROPDOWN))
+}
+```
+
+## Debugging Layers
+
+Visually debug layer order:
+
+```rust
+fn debug_layers() -> impl IntoElement {
+    rect()
+        .child(
+            rect()
+                .layer(-1)
+                .background((255, 0, 0, 100))
+                .child("Layer -1")
+        )
+        .child(
+            rect()
+                .background((0, 255, 0, 100))
+                .child("Layer 0")
+        )
+        .child(
+            rect()
+                .layer(1)
+                .background((0, 0, 255, 100))
+                .child("Layer 1")
+        )
+        .child(
+            rect()
+                .layer(Layer::Overlay)
+                .background((255, 255, 0, 100))
+                .child("Overlay")
+        )
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Elements" icon="cube" href="/concepts/elements">
+    Learn about the core elements
+  </Card>
+  <Card title="Components" icon="puzzle-piece" href="/concepts/components">
+    Build layered components
+  </Card>
+  <Card title="Events" icon="hand-pointer" href="/concepts/events">
+    Handle events across layers
+  </Card>
+  <Card title="Portal Component" icon="window-restore" href="/api-reference/components/portal">
+    Use the Portal component
+  </Card>
+</CardGroup>

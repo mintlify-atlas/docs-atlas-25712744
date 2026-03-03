@@ -1,0 +1,239 @@
+---
+title: ScrollView & VirtualScrollView
+description: Scrollable containers with support for large datasets
+---
+
+Freya provides two scrollable container components: `ScrollView` for general scrolling and `VirtualScrollView` for efficiently rendering large lists.
+
+## ScrollView
+
+`ScrollView` creates a scrollable area with bidirectional support and customizable scrollbars.
+
+### Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    ScrollView::new()
+        .height(Size::px(300.))
+        .child(
+            rect().spacing(8.).children(
+                (0..50).map(|i| {
+                    rect()
+                        .height(Size::px(40.))
+                        .background((100, 150, 200))
+                        .child(format!("Item {}", i))
+                        .into()
+                })
+            )
+        )
+}
+```
+
+### Properties
+
+<ParamField path="show_scrollbar" type="bool" default="true">
+  Whether to show scrollbars
+</ParamField>
+
+<ParamField path="direction" type="Direction" default="Direction::Vertical">
+  Scroll direction: `Vertical` or `Horizontal`
+</ParamField>
+
+<ParamField path="scroll_with_arrows" type="bool" default="true">
+  Whether arrow keys scroll the view
+</ParamField>
+
+<ParamField path="invert_scroll_wheel" type="bool" default="false">
+  Invert scroll wheel direction
+</ParamField>
+
+<ParamField path="scroll_controller" type="ScrollController">
+  External controller for programmatic scrolling
+</ParamField>
+
+<ParamField path="spacing" type="f32">
+  Space between child elements
+</ParamField>
+
+### Horizontal Scrolling
+
+```rust
+ScrollView::new()
+    .direction(Direction::Horizontal)
+    .height(Size::px(200.))
+    .child(
+        rect()
+            .direction(Direction::Horizontal)
+            .spacing(8.)
+            .children(
+                (0..30).map(|i| {
+                    rect()
+                        .width(Size::px(150.))
+                        .height(Size::fill())
+                        .background((200, 150, 100))
+                        .child(format!("Item {}", i))
+                        .into()
+                })
+            )
+    )
+```
+
+### Controlled Scrolling
+
+Programmatically control scroll position:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let scroll_controller = use_scroll_controller(ScrollConfig::default());
+    
+    rect()
+        .spacing(8.)
+        .child(
+            rect()
+                .horizontal()
+                .spacing(4.)
+                .child(
+                    Button::new()
+                        .on_press(move |_| scroll_controller.scroll_to_y(0))
+                        .child("Top")
+                )
+                .child(
+                    Button::new()
+                        .on_press(move |_| scroll_controller.scroll_by_y(100))
+                        .child("Down")
+                )
+        )
+        .child(
+            ScrollView::new_controlled(scroll_controller)
+                .height(Size::px(300.))
+                .child(/* content */)
+        )
+}
+```
+
+### Hide Scrollbar
+
+```rust
+ScrollView::new()
+    .show_scrollbar(false)
+    .child(/* content */)
+```
+
+## VirtualScrollView
+
+`VirtualScrollView` efficiently renders only visible items from large datasets, making it perfect for lists with thousands of items.
+
+### Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    VirtualScrollView::new(|i, _data| {
+        rect()
+            .key(i)
+            .height(Size::px(40.))
+            .padding(8.)
+            .background((100, 150, 200))
+            .child(format!("Item {}", i))
+            .into()
+    })
+    .length(10000)  // Total number of items
+    .item_size(40.) // Height of each item
+}
+```
+
+### Properties
+
+<ParamField path="builder" type="Fn(usize, &D) -> Element" required>
+  Function that builds an element for a given index
+</ParamField>
+
+<ParamField path="length" type="i32" required>
+  Total number of items in the list
+</ParamField>
+
+<ParamField path="item_size" type="f32" required>
+  Height of each item (must be consistent for all items)
+</ParamField>
+
+<ParamField path="builder_data" type="D">
+  Additional data passed to the builder function
+</ParamField>
+
+<ParamField path="show_scrollbar" type="bool" default="true">
+  Whether to show the scrollbar
+</ParamField>
+
+<ParamField path="scroll_with_arrows" type="bool" default="true">
+  Whether arrow keys scroll the view
+</ParamField>
+
+### With Custom Data
+
+```rust
+#[derive(Clone, PartialEq)]
+struct Item {
+    title: String,
+    description: String,
+}
+
+fn app() -> impl IntoElement {
+    let items = vec![
+        Item { title: "First".into(), description: "Description 1".into() },
+        Item { title: "Second".into(), description: "Description 2".into() },
+        // ... many more items
+    ];
+    
+    VirtualScrollView::new_with_data(
+        |i, items: &Vec<Item>| {
+            let item = &items[i];
+            rect()
+                .key(i)
+                .height(Size::px(60.))
+                .padding(8.)
+                .spacing(4.)
+                .child(label().text(&item.title).font_size(16.))
+                .child(label().text(&item.description).font_size(12.))
+                .into()
+        },
+        items,
+    )
+    .length(items.len() as i32)
+    .item_size(60.)
+}
+```
+
+## Performance Comparison
+
+- **ScrollView**: Renders all children. Good for less than 100 items
+- **VirtualScrollView**: Only renders visible items. Excellent for 1000+ items
+
+<Note>
+  Use `VirtualScrollView` when you have more than a few hundred items for better performance.
+</Note>
+
+## Keyboard Navigation
+
+Both components support keyboard scrolling when focused:
+
+- **Arrow Up/Down**: Scroll vertically
+- **Arrow Left/Right**: Scroll horizontally
+- **Page Up/Down**: Scroll by page
+- **Home/End**: Scroll to start/end
+
+## Accessibility
+
+- `role="scrollView"`
+- Keyboard navigable
+- Scroll position exposed to screen readers
+- Automatic scrollbar visibility
+
+## Source
+
+- [scrollview.rs](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/scrollviews/scrollview.rs)
+- [virtual_scrollview.rs](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/scrollviews/virtual_scrollview.rs)

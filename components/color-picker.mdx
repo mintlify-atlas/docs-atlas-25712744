@@ -1,0 +1,181 @@
+---
+title: ColorPicker
+description: HSV-based color picker with gradient interface and hex display
+---
+
+The `ColorPicker` component provides a color selection interface with saturation/value gradient and hue bar.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut color = use_state(|| Color::from_rgb(205, 86, 86));
+    
+    ColorPicker::new(move |c| color.set(c))
+        .value(color())
+}
+```
+
+## Properties
+
+<ParamField path="on_change" type="EventHandler<Color>" required>
+  Callback fired when color changes
+</ParamField>
+
+<ParamField path="value" type="Color" default="Color::WHITE">
+  Currently selected color
+</ParamField>
+
+<ParamField path="width" type="Size" default="Size::px(220.)">
+  Width of the color picker popup
+</ParamField>
+
+<ParamField path="theme" type="ColorPickerThemePartial">
+  Custom theme for styling
+</ParamField>
+
+## Color Format
+
+Colors are represented using Freya's `Color` type which supports:
+
+```rust
+// RGB
+Color::from_rgb(255, 100, 50)
+
+// HSV (Hue, Saturation, Value)
+Color::from_hsv(180.0, 0.8, 0.9)
+
+// Named colors
+Color::RED
+Color::BLUE
+Color::WHITE
+```
+
+## Complete Example
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut color = use_state(|| Color::from_rgb(205, 86, 86));
+    
+    rect()
+        .spacing(16.)
+        .padding(24.)
+        .child(ColorPicker::new(move |c| color.set(c)).value(color()))
+        .child(
+            rect()
+                .width(Size::px(200.))
+                .height(Size::px(100.))
+                .background(color())
+                .corner_radius(8.)
+        )
+        .child(format!("RGB: {:?}", color().to_rgb()))
+        .child(format!("Hex: {}", color().to_hex_string()))
+}
+```
+
+## Color Display
+
+The color picker displays:
+
+1. **Preview button**: Shows current color, click to open picker
+2. **SV gradient**: Click/drag to select saturation and value
+3. **Hue bar**: Click/drag to select hue
+4. **Hex value**: Shows current color in hex format with copy menu
+
+## Copy Color
+
+Click the hex value to open a menu with copy options:
+
+- **Copy as RGB**: `rgb(255, 100, 50)`
+- **Copy as HEX**: `#FF6432`
+
+## Interaction
+
+- **Click preview**: Open/close picker
+- **Click SV area**: Jump to color
+- **Drag in SV area**: Continuously update color
+- **Click hue bar**: Jump to hue
+- **Drag hue bar**: Continuously update hue
+- **Click outside**: Close picker
+
+## With Initial Color
+
+```rust
+let mut color = use_state(|| Color::from_hsv(240.0, 1.0, 0.8));
+
+ColorPicker::new(move |c| color.set(c))
+    .value(color())
+```
+
+## Multiple Pickers
+
+```rust
+let mut primary_color = use_state(|| Color::from_rgb(100, 100, 255));
+let mut secondary_color = use_state(|| Color::from_rgb(255, 100, 100));
+
+rect()
+    .horizontal()
+    .spacing(16.)
+    .child(
+        rect()
+            .spacing(8.)
+            .child("Primary Color")
+            .child(ColorPicker::new(move |c| primary_color.set(c)).value(primary_color()))
+    )
+    .child(
+        rect()
+            .spacing(8.)
+            .child("Secondary Color")
+            .child(ColorPicker::new(move |c| secondary_color.set(c)).value(secondary_color()))
+    )
+```
+
+## Color Utilities
+
+The `Color` type provides useful methods:
+
+```rust
+let color = Color::from_rgb(255, 100, 50);
+
+// Convert to HSV
+let hsv = color.to_hsv();
+println!("H: {}, S: {}, V: {}", hsv.h, hsv.s, hsv.v);
+
+// Modify components
+let darker = color.with_v(hsv.v * 0.5);
+let desaturated = color.with_s(hsv.s * 0.5);
+let hue_shifted = color.with_h((hsv.h + 180.0) % 360.0);
+
+// Get RGB components
+let (r, g, b) = (color.r(), color.g(), color.b());
+
+// Format as string
+let hex = color.to_hex_string();  // "#FF6432"
+let rgb = color.to_rgb_string();  // "rgb(255, 100, 50)"
+```
+
+## Animation
+
+The picker popup animates in/out with scale and opacity transitions.
+
+## Theming
+
+Customize appearance:
+
+```rust
+ColorPicker::new(move |c| color.set(c))
+    .value(color())
+    .theme(ColorPickerThemePartial {
+        background: Some(Color::from_rgb(40, 40, 40)),
+        border_fill: Some(Color::from_rgb(60, 60, 60)),
+        color: Some(Color::WHITE),
+    })
+```
+
+## Source
+
+View the full implementation: [color_picker.rs](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/color_picker.rs)

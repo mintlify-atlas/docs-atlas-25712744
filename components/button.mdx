@@ -1,0 +1,183 @@
+---
+title: Button
+description: Interactive button component with multiple style and layout variants
+---
+
+The `Button` component provides a clickable button with support for different visual styles, sizes, and states.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    Button::new()
+        .on_press(|_| println!("Button pressed!"))
+        .child("Click me")
+}
+```
+
+## Style Variants
+
+Buttons come in four style variants:
+
+### Normal (Default)
+
+```rust
+Button::new()
+    .on_press(|_| println!("Pressed!"))
+    .child("Normal Button")
+```
+
+### Filled
+
+```rust
+Button::new()
+    .on_press(|_| println!("Pressed!"))
+    .filled()
+    .child("Filled Button")
+```
+
+### Outline
+
+```rust
+Button::new()
+    .on_press(|_| println!("Pressed!"))
+    .outline()
+    .child("Outline Button")
+```
+
+### Flat
+
+```rust
+Button::new()
+    .on_press(|_| println!("Pressed!"))
+    .flat()
+    .child("Flat Button")
+```
+
+## Layout Variants
+
+Control button size with layout variants:
+
+### Normal (Default)
+
+```rust
+Button::new()
+    .child("Normal Size")
+```
+
+### Compact
+
+```rust
+Button::new()
+    .compact()
+    .child("Compact")
+```
+
+### Expanded
+
+```rust
+Button::new()
+    .expanded()
+    .child("Expanded")
+```
+
+## Properties
+
+<ParamField path="on_press" type="EventHandler<Event<PressEventData>>">
+  Callback fired when the button is pressed with the primary button/key
+</ParamField>
+
+<ParamField path="on_secondary_press" type="EventHandler<Event<PressEventData>>">
+  Callback fired when the button is pressed with the secondary button (right-click)
+</ParamField>
+
+<ParamField path="enabled" type="bool" default="true">
+  Whether the button can be interacted with
+</ParamField>
+
+<ParamField path="focusable" type="bool" default="true">
+  Whether the button can receive keyboard focus
+</ParamField>
+
+<ParamField path="style_variant" type="ButtonStyleVariant">
+  Visual style: `Normal`, `Filled`, `Outline`, or `Flat`
+</ParamField>
+
+<ParamField path="layout_variant" type="ButtonLayoutVariant">
+  Size variant: `Normal`, `Compact`, or `Expanded`
+</ParamField>
+
+<ParamField path="theme_colors" type="ButtonColorsThemePartial">
+  Custom color theme for the button
+</ParamField>
+
+<ParamField path="theme_layout" type="ButtonLayoutThemePartial">
+  Custom layout theme (padding, corner radius, etc.)
+</ParamField>
+
+## Complete Example
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 0);
+
+    rect()
+        .center()
+        .expanded()
+        .spacing(12.)
+        .child(format!("Count: {}", count()))
+        .child(
+            Button::new()
+                .on_press(move |_| count += 1)
+                .filled()
+                .child("Increment")
+        )
+        .child(
+            Button::new()
+                .on_press(move |_| count.set(0))
+                .outline()
+                .enabled(count() > 0)
+                .child("Reset")
+        )
+}
+```
+
+## States
+
+Buttons automatically handle different interaction states:
+
+- **Idle**: Default appearance
+- **Hovering**: Shows hover background when cursor is over the button
+- **Focused**: Shows focus border when navigating with keyboard
+- **Disabled**: Grayed out appearance when `enabled(false)`
+
+## Accessibility
+
+Buttons include proper ARIA attributes:
+- `role="button"`
+- Keyboard navigation with Tab
+- Activation with Space or Enter
+- Focus indicators for keyboard users
+
+## Theming
+
+Customize button appearance with theme overrides:
+
+```rust
+Button::new()
+    .theme_colors(ButtonColorsThemePartial {
+        background: Some(Color::from_rgb(100, 100, 255)),
+        hover_background: Some(Color::from_rgb(120, 120, 255)),
+        color: Some(Color::WHITE),
+        ..Default::default()
+    })
+    .child("Custom Theme")
+```
+
+## Source
+
+View the full implementation: [button.rs](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/button.rs)

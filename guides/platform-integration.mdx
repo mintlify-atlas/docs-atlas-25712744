@@ -1,0 +1,528 @@
+---
+title: Platform Integration
+description: Learn how to integrate with platform-specific features and APIs in Freya applications
+---
+
+Freya provides access to platform-specific features and system information through various APIs. This guide covers how to integrate with the host platform, handle window management, and access system resources.
+
+## Platform Context
+
+The `Platform` context provides access to platform-specific information and capabilities:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let platform = Platform::get();
+    
+    format!("Window size: {:?}", platform.root_size.read())
+}
+```
+
+### Platform Properties
+
+The `Platform` struct includes:
+
+- `root_size: State<Size2D>` - Current window/root size
+- `focused_accessibility_id: State<AccessibilityId>` - Currently focused element
+- `navigation_mode: State<NavigationMode>` - Keyboard or mouse navigation
+- `preferred_theme: State<PreferredTheme>` - System theme preference
+- `sender: Rc<dyn Fn(UserEvent)>` - Send user events
+
+## Window Management
+
+### Window Configuration
+
+Configure your window at launch:
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new().with_window(
+            WindowConfig::new(app)
+                .with_size(800.0, 600.0)
+                .with_title("My App")
+                .with_decorations(true)
+                .with_transparency(false)
+        )
+    )
+}
+```
+
+### Window Properties
+
+**Size:**
+
+```rust
+WindowConfig::new(app)
+    .with_size(1024.0, 768.0)  // Width, height in pixels
+```
+
+**Title:**
+
+```rust
+WindowConfig::new(app)
+    .with_title("My Application")
+```
+
+**Decorations:**
+
+```rust
+WindowConfig::new(app)
+    .with_decorations(false)  // Frameless window
+```
+
+**Transparency:**
+
+```rust
+WindowConfig::new(app)
+    .with_transparency(true)   // Transparent background
+    .with_background(Color::TRANSPARENT)
+```
+
+### Custom Window Attributes
+
+For advanced window configuration using Winit:
+
+```rust
+use freya::prelude::*;
+use freya::winit::dpi::LogicalPosition;
+
+fn main() {
+    let (width, height) = (600, 600);
+    launch(
+        LaunchConfig::new().with_window(
+            WindowConfig::new(app)
+                .with_size(width as f64, height as f64)
+                .with_background(Color::TRANSPARENT)
+                .with_decorations(false)
+                .with_transparency(true)
+                .with_window_attributes(move |attributes, el| {
+                    // Center the window
+                    if let Some(monitor) = el
+                        .primary_monitor()
+                        .or_else(|| el.available_monitors().next())
+                    {
+                        let size = monitor.size();
+                        attributes.with_position(LogicalPosition {
+                            x: size.width as i32 / 2 - width / 2,
+                            y: size.height as i32 / 2 - height / 2,
+                        })
+                    } else {
+                        attributes
+                    }
+                })
+                .with_window_handle(|window| {
+                    // Configure window after creation
+                    let _ = window.set_cursor_hittest(false);
+                }),
+        ),
+    )
+}
+```
+
+## Window Size and Viewport
+
+### Reading Window Size
+
+Access the current window size reactively:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let platform = Platform::get();
+    let size = platform.root_size.read();
+    
+    rect()
+        .expanded()
+        .child(
+            format!("Window: {}x{}", size.width, size.height)
+        )
+}
+```
+
+### Responsive Layouts
+
+Adjust layout based on window size:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let platform = Platform::get();
+    let is_mobile = platform.root_size.read().width < 768.0;
+    
+    if is_mobile {
+        // Mobile layout
+        rect().spacing(8.).child("Compact view")
+    } else {
+        // Desktop layout
+        rect()
+            .horizontal()
+            .spacing(16.)
+            .child("Wide view")
+    }
+}
+```
+
+## System Theme
+
+### Detecting System Theme
+
+Read the system's preferred theme:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let platform = Platform::get();
+    let preferred = platform.preferred_theme.read();
+    
+    let theme = match *preferred {
+        PreferredTheme::Light => LIGHT_THEME,
+        PreferredTheme::Dark => DARK_THEME,
+    };
+    
+    use_init_theme(|| theme);
+    
+    rect()
+        .theme_background()
+        .expanded()
+        .child("Theme follows system")
+}
+```
+
+### Reacting to Theme Changes
+
+Automatically update when system theme changes:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let platform = Platform::get();
+    let mut theme = use_init_theme(|| LIGHT_THEME);
+    
+    // Watch for theme preference changes
+    use_effect(move || {
+        let preferred = platform.preferred_theme.read();
+        let new_theme = match *preferred {
+            PreferredTheme::Light => LIGHT_THEME,
+            PreferredTheme::Dark => DARK_THEME,
+        };
+        theme.set(new_theme);
+    });
+    
+    rect().theme_background().expanded()
+}
+```
+
+## Navigation Mode
+
+Detect whether the user is navigating with keyboard or mouse:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let platform = Platform::get();
+    let mode = platform.navigation_mode.read();
+    
+    match *mode {
+        NavigationMode::Keyboard => {
+            // Show focus indicators
+            rect().border((2., (0, 100, 255)))
+        }
+        NavigationMode::NotKeyboard => {
+            // Hide focus indicators
+            rect().border((0., (0, 0, 0)))
+        }
+    }
+}
+```
+
+## Clipboard Integration
+
+Access the system clipboard:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut clipboard_content = use_state(|| String::new());
+    
+    let copy_to_clipboard = move |text: String| {
+        // Use the clipboard API
+        let clipboard = Clipboard::get();
+        clipboard.set_text(text);
+    };
+    
+    let read_clipboard = move || {
+        let clipboard = Clipboard::get();
+        if let Ok(text) = clipboard.get_text() {
+            clipboard_content.set(text);
+        }
+    };
+    
+    rect()
+        .child(
+            Button::new()
+                .text("Copy")
+                .on_click(move |_| copy_to_clipboard("Hello!".to_string()))
+        )
+        .child(
+            Button::new()
+                .text("Paste")
+                .on_click(move |_| read_clipboard())
+        )
+}
+```
+
+## File System Access
+
+### File Picker
+
+Open native file picker dialogs:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut selected_file = use_state(|| None::<String>);
+    
+    let open_file = move || {
+        use rfd::FileDialog;
+        
+        if let Some(path) = FileDialog::new()
+            .add_filter("Text files", &["txt"])
+            .pick_file()
+        {
+            selected_file.set(Some(path.display().to_string()));
+        }
+    };
+    
+    rect()
+        .child(
+            Button::new()
+                .text("Open File")
+                .on_click(move |_| open_file())
+        )
+        .child(
+            selected_file.read().as_ref().map(|path| {
+                format!("Selected: {}", path)
+            })
+        )
+}
+```
+
+### Drag and Drop
+
+Handle file drag and drop:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut dropped_files = use_state(|| Vec::new());
+    
+    rect()
+        .expanded()
+        .on_file_drop(move |files| {
+            dropped_files.set(files.iter().map(|f| f.clone()).collect());
+        })
+        .child("Drop files here")
+}
+```
+
+## Multi-Window Support
+
+Create and manage multiple windows:
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(
+                WindowConfig::new(main_window)
+                    .with_title("Main Window")
+            )
+            .with_window(
+                WindowConfig::new(secondary_window)
+                    .with_title("Secondary Window")
+                    .with_size(400.0, 300.0)
+            )
+    )
+}
+
+fn main_window() -> impl IntoElement {
+    rect().child("Main Window")
+}
+
+fn secondary_window() -> impl IntoElement {
+    rect().child("Secondary Window")
+}
+```
+
+## Window Events
+
+### Close Request
+
+Handle window close events:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut can_close = use_state(|| false);
+    
+    use_window_event(move |event| {
+        if let WindowEvent::CloseRequested = event {
+            if !*can_close.read() {
+                // Prevent closing
+                return WindowResponse::Prevent;
+            }
+        }
+        WindowResponse::Continue
+    });
+    
+    rect()
+        .child(
+            Button::new()
+                .text("Allow Close")
+                .on_click(move |_| can_close.set(true))
+        )
+}
+```
+
+## System Tray Integration
+
+Add your app to the system tray:
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(WindowConfig::new(app))
+            .with_tray(TrayConfig {
+                icon: include_bytes!("icon.png"),
+                menu: vec![
+                    TrayMenuItem::Item("Show", show_window),
+                    TrayMenuItem::Separator,
+                    TrayMenuItem::Item("Quit", quit_app),
+                ],
+            })
+    )
+}
+```
+
+## Custom Window Titlebar
+
+Create a custom titlebar with window controls:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .child(
+            // Custom titlebar
+            Titlebar::new()
+                .title("My App")
+                .on_minimize(|_| { /* minimize window */ })
+                .on_maximize(|_| { /* maximize window */ })
+                .on_close(|_| { /* close window */ })
+        )
+        .child(
+            // Content
+            rect()
+                .width(Size::fill())
+                .height(Size::fill())
+                .child("App content")
+        )
+}
+```
+
+## Best Practices
+
+1. **Handle window lifecycle** - Properly clean up resources on window close
+
+2. **Responsive design** - Test with different window sizes
+
+3. **Theme awareness** - Respect system theme preferences
+
+4. **Keyboard navigation** - Support keyboard-only navigation
+
+5. **Accessibility** - Provide proper accessibility information
+
+6. **Platform-specific features** - Use conditional compilation for platform-specific code:
+
+```rust
+#[cfg(target_os = "windows")]
+fn windows_specific() {
+    // Windows-only code
+}
+
+#[cfg(target_os = "macos")]
+fn macos_specific() {
+    // macOS-only code
+}
+
+#[cfg(target_os = "linux")]
+fn linux_specific() {
+    // Linux-only code
+}
+```
+
+## Common Patterns
+
+### Frameless Draggable Window
+
+```rust
+fn main() {
+    launch(
+        LaunchConfig::new().with_window(
+            WindowConfig::new(app)
+                .with_decorations(false)
+                .with_window_handle(|window| {
+                    // Make window draggable
+                })
+        )
+    )
+}
+```
+
+### Splash Screen
+
+```rust
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(
+                WindowConfig::new(splash_screen)
+                    .with_decorations(false)
+                    .with_transparency(true)
+            )
+    )
+}
+
+fn splash_screen() -> impl IntoElement {
+    rect()
+        .center()
+        .expanded()
+        .child("Loading...")
+}
+```
+
+## Next Steps
+
+- Learn about [Events](/concepts/events) for handling user interactions
+- Explore [State Management](/concepts/state-management) for window state
+- Check out [Accessibility](/features/accessibility) for inclusive apps

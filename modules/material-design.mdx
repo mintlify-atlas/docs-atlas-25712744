@@ -1,0 +1,345 @@
+---
+title: Material Design
+description: Material Design components and effects for Freya applications
+---
+
+The Material Design module provides Material Design-style components and effects, including the iconic ripple effect for buttons and interactive elements.
+
+## Installation
+
+Enable the `material-design` feature in your `Cargo.toml`:
+
+```toml
+[dependencies]
+freya = { version = "0.4", features = ["material-design"] }
+```
+
+## Importing
+
+```rust
+use freya::{
+    material_design::*,
+    prelude::*,
+};
+```
+
+## Components
+
+### Ripple Effect
+
+The `Ripple` component creates a Material Design-style ripple effect that expands from the click position and fades out.
+
+#### Basic Usage
+
+```rust
+fn app() -> impl IntoElement {
+    Ripple::new().child(
+        rect()
+            .width(Size::px(200.))
+            .height(Size::px(100.))
+            .background((100, 100, 200))
+            .center()
+            .child("Click me!"),
+    )
+}
+```
+
+#### Customization
+
+```rust
+use std::time::Duration;
+
+Ripple::new()
+    .color((255, 255, 255))              // Set ripple color
+    .duration(Duration::from_millis(600)) // Set animation duration
+    .child(
+        rect()
+            .width(Size::px(200.))
+            .height(Size::px(100.))
+            .background((100, 100, 200))
+            .child("Custom ripple"),
+    )
+```
+
+#### Properties
+
+- `color(color)` - Set the ripple color (default: primary theme color)
+- `duration(duration)` - Set animation duration (default: 800ms)
+
+### Material Button
+
+Extend any Freya button with a ripple effect using the `ripple()` method.
+
+#### Basic Material Button
+
+```rust
+Button::new()
+    .on_press(|_| println!("Pressed!"))
+    .ripple()
+    .child("Material Button")
+```
+
+#### Customization
+
+```rust
+Button::new()
+    .on_press(|_| println!("Pressed!"))
+    .flat()
+    .ripple()
+    .color((200, 200, 255))              // Ripple color
+    .duration(Duration::from_millis(600)) // Animation duration
+    .child("Custom Material Button")
+```
+
+#### Complete Example
+
+```rust
+use freya::{
+    material_design::*,
+    prelude::*,
+};
+use std::time::Duration;
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .center()
+        .expanded()
+        .vertical()
+        .spacing(20.)
+        .main_align(Alignment::Center)
+        .child(
+            Button::new()
+                .on_press(|_| println!("Normal button pressed"))
+                .ripple()
+                .child("Normal Material Button"),
+        )
+        .child(
+            Button::new()
+                .on_press(|_| println!("Flat button pressed"))
+                .flat()
+                .ripple()
+                .child("Flat Material Button"),
+        )
+        .child(
+            Button::new()
+                .on_press(|_| println!("Custom ripple"))
+                .ripple()
+                .color((100, 255, 100))
+                .duration(Duration::from_millis(1000))
+                .expanded()
+                .child("Custom Ripple"),
+        )
+}
+```
+
+## How It Works
+
+### Ripple Component
+
+The `Ripple` component:
+1. Listens for mouse down events
+2. Creates a ripple instance at the click location
+3. Animates the ripple expanding and fading out
+4. Automatically removes finished ripples
+
+### Button Integration
+
+The `ButtonRippleExt` trait:
+- Wraps the button's children in a `Ripple` component
+- Preserves all button functionality (press events, styling, etc.)
+- Adjusts padding to maintain the button's original appearance
+
+## Animation Details
+
+### Ripple Animation
+
+- **Scale**: Animates from 0 to max_size (2.5x container size)
+- **Opacity**: Fades from 0.35 to 0.0
+- **Duration**: Default 800ms, customizable
+- **Easing**: Expo ease-out for natural motion
+
+### Multiple Ripples
+
+The component supports multiple simultaneous ripples - each click creates a new ripple that animates independently.
+
+## Styling
+
+### Default Ripple Color
+
+By default, ripples use the theme's primary color:
+
+```rust
+Ripple::new() // Uses theme.colors.primary
+```
+
+### Custom Colors
+
+```rust
+Ripple::new()
+    .color((255, 255, 255))    // White ripple
+    .color((255, 0, 0))        // Red ripple
+    .color(Color::from_rgb(100, 200, 255)) // Custom color
+```
+
+### Transparent Backgrounds
+
+Ripples work well with transparent backgrounds:
+
+```rust
+Button::new()
+    .flat()                    // Flat button style
+    .background((0, 0, 0, 0))  // Transparent background
+    .ripple()
+    .child("Transparent Button")
+```
+
+## Layout Integration
+
+Ripples respect the container's layout and overflow:
+
+```rust
+Ripple::new()
+    .expanded()                // Fill available space
+    .padding(20.)              // Add padding
+    .corner_radius(12.)        // Rounded corners (ripple clips to bounds)
+    .child(content)
+```
+
+## Advanced Usage
+
+### Custom Interactive Element
+
+```rust
+fn custom_card() -> impl IntoElement {
+    Ripple::new()
+        .color((255, 255, 255))
+        .child(
+            rect()
+                .width(Size::px(300.))
+                .height(Size::px(200.))
+                .background((50, 50, 50))
+                .corner_radius(12.)
+                .padding(20.)
+                .child(
+                    label()
+                        .text("Custom Card")
+                        .color((255, 255, 255)),
+                ),
+        )
+}
+```
+
+### Multiple Ripple Colors
+
+```rust
+let mut ripple_color = use_state(|| (255, 255, 255));
+
+Ripple::new()
+    .color(*ripple_color.read())
+    .child(content)
+```
+
+### Fast Ripples
+
+```rust
+Ripple::new()
+    .duration(Duration::from_millis(400)) // Faster animation
+    .child(content)
+```
+
+## API Reference
+
+### Ripple
+
+```rust
+Ripple::new()
+    .color(color: impl Into<Color>)        // Set ripple color
+    .duration(duration: Duration)          // Set animation duration
+    .child(element)                        // Add child element
+```
+
+### ButtonRippleExt
+
+```rust
+trait ButtonRippleExt {
+    fn ripple(self) -> RippleButton;
+}
+```
+
+### RippleButton
+
+```rust
+RippleButton
+    .color(color: impl Into<Color>)        // Set ripple color
+    .duration(duration: Duration)          // Set animation duration
+    .child(element)                        // Add child element
+```
+
+## Examples
+
+### Material Card
+
+```rust
+Ripple::new()
+    .color((255, 255, 255))
+    .child(
+        rect()
+            .width(Size::px(320.))
+            .padding(24.)
+            .background((255, 255, 255))
+            .corner_radius(8.)
+            .border(Border::new().fill((200, 200, 200)).width(1.))
+            .vertical()
+            .spacing(12.)
+            .child(label().text("Card Title").font_size(20.))
+            .child(label().text("Card content goes here")),
+    )
+```
+
+### Icon Button
+
+```rust
+use freya::icons;
+
+Button::new()
+    .on_press(|_| println!("Icon clicked"))
+    .ripple()
+    .rounded_full()
+    .width(Size::px(48.))
+    .height(Size::px(48.))
+    .child(
+        svg(icons::lucide::heart())
+            .width(Size::px(24.))
+            .height(Size::px(24.))
+            .color((255, 100, 100)),
+    )
+```
+
+### List Item
+
+```rust
+Ripple::new()
+    .child(
+        rect()
+            .width(Size::fill())
+            .height(Size::px(60.))
+            .horizontal()
+            .padding(16.)
+            .cross_align(Alignment::Center)
+            .spacing(16.)
+            .child(svg(icons::lucide::user()).width(Size::px(24.)))
+            .child(label().text("List Item Text")),
+    )
+```
+
+## Notes
+
+- Ripples are automatically clipped to the container's bounds
+- Multiple ripples can animate simultaneously
+- Ripples use the Freya animation system for smooth 60fps animations
+- The ripple effect works on any element, not just buttons
+- Default ripple color comes from the current theme

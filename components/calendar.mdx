@@ -1,0 +1,206 @@
+---
+title: Calendar
+description: Date picker component with month and year navigation
+---
+
+The `Calendar` component displays a monthly calendar view for selecting dates.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut selected = use_state(|| None::<CalendarDate>);
+    let mut view_date = use_state(CalendarDate::now);
+    
+    Calendar::new()
+        .selected(selected())
+        .view_date(view_date())
+        .on_change(move |date| selected.set(Some(date)))
+        .on_view_change(move |date| view_date.set(date))
+}
+```
+
+## CalendarDate
+
+The `CalendarDate` struct represents a date:
+
+```rust
+pub struct CalendarDate {
+    pub year: i32,
+    pub month: u32,  // 1-12
+    pub day: u32,    // 1-31
+}
+
+impl CalendarDate {
+    pub fn new(year: i32, month: u32, day: u32) -> Self
+    pub fn now() -> Self  // Current local date
+}
+```
+
+## Properties
+
+<ParamField path="selected" type="Option<CalendarDate>">
+  Currently selected date (if any)
+</ParamField>
+
+<ParamField path="view_date" type="CalendarDate" default="CalendarDate::now()">
+  The month/year currently being viewed
+</ParamField>
+
+<ParamField path="week_start" type="WeekStart" default="WeekStart::Monday">
+  First day of the week: `Monday` or `Sunday`
+</ParamField>
+
+<ParamField path="on_change" type="EventHandler<CalendarDate>">
+  Callback fired when a date is selected
+</ParamField>
+
+<ParamField path="on_view_change" type="EventHandler<CalendarDate>">
+  Callback fired when navigating between months
+</ParamField>
+
+<ParamField path="theme" type="CalendarThemePartial">
+  Custom theme for styling
+</ParamField>
+
+## Week Start Day
+
+Choose whether weeks start on Sunday or Monday:
+
+```rust
+Calendar::new()
+    .week_start(WeekStart::Sunday)
+    // ...
+```
+
+## Complete Example
+
+Date picker with display:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut selected = use_state(|| None::<CalendarDate>);
+    let mut view_date = use_state(CalendarDate::now);
+    
+    rect()
+        .spacing(16.)
+        .child(
+            Calendar::new()
+                .selected(selected())
+                .view_date(view_date())
+                .on_change(move |date| selected.set(Some(date)))
+                .on_view_change(move |date| view_date.set(date))
+        )
+        .child(
+            match selected() {
+                Some(date) => format!(
+                    "Selected: {}/{}/{}",
+                    date.day, date.month, date.year
+                ),
+                None => "No date selected".to_string(),
+            }
+        )
+}
+```
+
+## Popup Date Picker
+
+Combine with a popup for a compact date picker:
+
+```rust
+let mut show_calendar = use_state(|| false);
+let mut selected = use_state(|| None::<CalendarDate>);
+let mut view_date = use_state(CalendarDate::now);
+
+rect()
+    .spacing(8.)
+    .child(
+        Button::new()
+            .on_press(move |_| show_calendar.toggle())
+            .child(match selected() {
+                Some(date) => format!("{}/{}/{}", date.day, date.month, date.year),
+                None => "Select date".to_string(),
+            })
+    )
+    .maybe_child(show_calendar().then(|| {
+        rect()
+            .background(Color::WHITE)
+            .shadow(Shadow::new().blur(10.).color((0, 0, 0, 0.2)))
+            .padding(8.)
+            .corner_radius(8.)
+            .child(
+                Calendar::new()
+                    .selected(selected())
+                    .view_date(view_date())
+                    .on_change(move |date| {
+                        selected.set(Some(date));
+                        show_calendar.set(false);
+                    })
+                    .on_view_change(move |date| view_date.set(date))
+            )
+    }))
+```
+
+## Date Range Picker
+
+Implement a range picker with two calendars:
+
+```rust
+let mut start_date = use_state(|| None::<CalendarDate>);
+let mut end_date = use_state(|| None::<CalendarDate>);
+
+rect()
+    .horizontal()
+    .spacing(16.)
+    .child(
+        rect()
+            .spacing(8.)
+            .child("Start Date")
+            .child(
+                Calendar::new()
+                    .selected(start_date())
+                    .on_change(move |date| start_date.set(Some(date)))
+            )
+    )
+    .child(
+        rect()
+            .spacing(8.)
+            .child("End Date")
+            .child(
+                Calendar::new()
+                    .selected(end_date())
+                    .on_change(move |date| end_date.set(Some(date)))
+            )
+    )
+```
+
+## Navigation
+
+Calendar includes navigation arrows to move between months:
+
+- **Left arrow**: Previous month
+- **Right arrow**: Next month
+
+The `on_view_change` callback is triggered when navigating.
+
+## Theming
+
+Customize calendar appearance:
+
+```rust
+Calendar::new()
+    .theme(CalendarThemePartial {
+        background: Some(Color::from_rgb(250, 250, 255)),
+        day_selected_background: Some(Color::from_rgb(100, 100, 255)),
+        day_hover_background: Some(Color::from_rgb(220, 220, 255)),
+        ..Default::default()
+    })
+```
+
+## Source
+
+View the full implementation: [calendar.rs](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/calendar.rs)

@@ -1,0 +1,427 @@
+---
+title: Text Editing
+description: Learn how to implement text editing functionality using Freya's editable system
+---
+
+Freya provides a powerful low-level text editing system through the `use_editable` hook and `freya-edit` crate. This guide will help you understand how to implement text editing functionality in your applications.
+
+<Note>
+For most use cases, you should use the pre-built `Input` component instead of working with the editable system directly. This guide covers the low-level API for custom text editing implementations.
+</Note>
+
+## Quick Start with Input Component
+
+The easiest way to add text input to your app:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut value = use_state(|| String::from(""));
+    
+    Input::new()
+        .value(value.read().clone())
+        .on_change(move |new_value| {
+            value.set(new_value);
+        })
+}
+```
+
+## Low-Level Text Editing
+
+### Basic Editable Text
+
+Implement a simple editable text field using the low-level API:
+
+```rust
+use freya::{
+    prelude::*,
+    text_edit::*,
+};
+
+fn app() -> impl IntoElement {
+    let holder = use_state(ParagraphHolder::default);
+    let mut editable = use_editable(|| "Hello, World!".to_string(), EditableConfig::new);
+    let focus = use_focus();
+
+    paragraph()
+        .a11y_id(focus.a11y_id())
+        .cursor_index(editable.editor().read().cursor_pos())
+        .highlights(
+            editable
+                .editor()
+                .read()
+                .get_selection()
+                .map(|selection| vec![selection])
+                .unwrap_or_default(),
+        )
+        .on_mouse_down(move |e: Event<MouseEventData>| {
+            focus.request_focus();
+            editable.process_event(EditableEvent::Down {
+                location: e.element_location,
+                editor_line: EditorLine::SingleParagraph,
+                holder: &holder.read(),
+            });
+        })
+        .on_mouse_move(move |e: Event<MouseEventData>| {
+            editable.process_event(EditableEvent::Move {
+                location: e.element_location,
+                editor_line: EditorLine::SingleParagraph,
+                holder: &holder.read(),
+            });
+        })
+        .on_global_mouse_up(move |_| editable.process_event(EditableEvent::Release))
+        .on_key_down(move |e: Event<KeyboardEventData>| {
+            editable.process_event(EditableEvent::KeyDown {
+                key: &e.key,
+                modifiers: e.modifiers,
+            });
+        })
+        .on_key_up(move |e: Event<KeyboardEventData>| {
+            editable.process_event(EditableEvent::KeyUp { key: &e.key });
+        })
+        .span(editable.editor().read().to_string())
+        .holder(holder.read().clone())
+}
+```
+
+## Editable System Components
+
+### UseEditable Hook
+
+The `use_editable` hook creates an editable text instance:
+
+```rust
+let mut editable = use_editable(
+    || "Initial content".to_string(),  // Initial text
+    EditableConfig::new                  // Configuration
+);
+```
+
+### EditableConfig
+
+Configure the editable behavior:
+
+```rust
+let config = EditableConfig {
+    indentation: Indentation::Spaces(4),  // Tab behavior
+};
+
+let mut editable = use_editable(
+    || String::new(),
+    || config
+);
+```
+
+### Accessing the Editor
+
+The editor state can be accessed through the editable:
+
+```rust
+// Read the current text
+let text = editable.editor().read().to_string();
+
+// Get cursor position
+let cursor_pos = editable.editor().read().cursor_pos();
+
+// Get text selection
+let selection = editable.editor().read().get_selection();
+```
+
+## Editable Events
+
+The editable system processes various events:
+
+### Mouse Events
+
+**Mouse Down** - Start text selection:
+
+```rust
+.on_mouse_down(move |e: Event<MouseEventData>| {
+    editable.process_event(EditableEvent::Down {
+        location: e.element_location,
+        editor_line: EditorLine::SingleParagraph,
+        holder: &holder.read(),
+    });
+})
+```
+
+**Mouse Move** - Update selection:
+
+```rust
+.on_mouse_move(move |e: Event<MouseEventData>| {
+    editable.process_event(EditableEvent::Move {
+        location: e.element_location,
+        editor_line: EditorLine::SingleParagraph,
+        holder: &holder.read(),
+    });
+})
+```
+
+**Mouse Up** - End selection:
+
+```rust
+.on_global_mouse_up(move |_| {
+    editable.process_event(EditableEvent::Release)
+})
+```
+
+### Keyboard Events
+
+**Key Down** - Handle key presses:
+
+```rust
+.on_key_down(move |e: Event<KeyboardEventData>| {
+    editable.process_event(EditableEvent::KeyDown {
+        key: &e.key,
+        modifiers: e.modifiers,
+    });
+})
+```
+
+**Key Up** - Handle key releases:
+
+```rust
+.on_key_up(move |e: Event<KeyboardEventData>| {
+    editable.process_event(EditableEvent::KeyUp { key: &e.key });
+})
+```
+
+## Text Selection and Highlighting
+
+Display text selection:
+
+```rust
+paragraph()
+    .cursor_index(editable.editor().read().cursor_pos())
+    .highlights(
+        editable
+            .editor()
+            .read()
+            .get_selection()
+            .map(|selection| vec![selection])
+            .unwrap_or_default(),
+    )
+    .span(editable.editor().read().to_string())
+```
+
+## Focus Management
+
+Manage focus for the editable field:
+
+```rust
+let focus = use_focus();
+
+paragraph()
+    .a11y_id(focus.a11y_id())  // Associate with accessibility ID
+    .on_mouse_down(move |_| {
+        focus.request_focus();  // Request focus on click
+    })
+```
+
+## Editor Operations
+
+### Programmatic Text Manipulation
+
+Modify text programmatically:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct EditorDemo;
+
+impl Component for EditorDemo {
+    fn render(&self) -> impl IntoElement {
+        let mut editable = use_editable(
+            || "Edit me".to_string(),
+            EditableConfig::new
+        );
+        
+        let clear_text = move || {
+            editable.editor_mut().write().clear();
+        };
+        
+        let append_text = move |text: &str| {
+            let mut editor = editable.editor_mut().write();
+            editor.insert_text(text);
+        };
+        
+        rect()
+            .spacing(8.)
+            .child(Button::new().text("Clear").on_click(clear_text))
+            .child(
+                Button::new()
+                    .text("Append")
+                    .on_click(move |_| append_text(" - appended"))
+            )
+    }
+}
+```
+
+## Multi-line Text Editing
+
+For multi-line text areas, use `EditorLine::MultiParagraph`:
+
+```rust
+editable.process_event(EditableEvent::Down {
+    location: e.element_location,
+    editor_line: EditorLine::MultiParagraph,  // Support multiple lines
+    holder: &holder.read(),
+});
+```
+
+## Code Editor Example
+
+For a full-featured code editor, use the `CodeEditor` component:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let content = use_state(|| "fn main() {\n    println!(\"Hello!\");\n}".to_string());
+    
+    CodeEditor::new(
+        content.read().clone(),
+        SyntaxTheme::default(),
+    )
+    .language(Language::Rust)
+    .on_change(move |new_content| {
+        content.set(new_content);
+    })
+}
+```
+
+## Clipboard Integration
+
+The editable system automatically handles clipboard operations:
+
+- **Ctrl/Cmd + C** - Copy selected text
+- **Ctrl/Cmd + X** - Cut selected text
+- **Ctrl/Cmd + V** - Paste from clipboard
+
+## Common Patterns
+
+### Controlled Input
+
+Create a controlled input with external state:
+
+```rust
+fn controlled_input() -> impl IntoElement {
+    let mut value = use_state(|| String::new());
+    
+    Input::new()
+        .value(value.read().clone())
+        .on_change(move |new_value| {
+            // Validate or transform input
+            let sanitized = new_value.trim().to_string();
+            value.set(sanitized);
+        })
+}
+```
+
+### Password Input
+
+```rust
+Input::new()
+    .value(password.read().clone())
+    .input_type(InputType::Password)  // Mask characters
+    .on_change(move |new_value| {
+        password.set(new_value);
+    })
+```
+
+### Text Input with Validation
+
+```rust
+fn validated_input() -> impl IntoElement {
+    let mut value = use_state(|| String::new());
+    let mut error = use_state(|| None::<String>);
+    
+    let validate = move |text: String| {
+        if text.len() < 3 {
+            error.set(Some("Must be at least 3 characters".to_string()));
+        } else {
+            error.set(None);
+        }
+        value.set(text);
+    };
+    
+    rect()
+        .child(
+            Input::new()
+                .value(value.read().clone())
+                .on_change(validate)
+        )
+        .child(
+            error.read().as_ref().map(|err| {
+                label().text(err.clone()).color((255, 0, 0))
+            })
+        )
+}
+```
+
+### Number Input
+
+```rust
+fn number_input() -> impl IntoElement {
+    let mut value = use_state(|| 0i32);
+    
+    Input::new()
+        .value(value.read().to_string())
+        .on_change(move |text| {
+            if let Ok(num) = text.parse::<i32>() {
+                value.set(num);
+            }
+        })
+}
+```
+
+## Best Practices
+
+1. **Use the Input component** - Unless you need custom behavior, use the built-in `Input` component
+
+2. **Handle focus properly** - Always manage focus for editable fields to ensure proper keyboard event handling
+
+3. **Validate input** - Implement validation in the `on_change` callback
+
+4. **Provide feedback** - Show visual feedback for invalid input or successful operations
+
+5. **Accessibility** - Use proper accessibility IDs with `a11y_id()`
+
+6. **Performance** - For large text documents, consider using the `CodeEditor` component which is optimized for performance
+
+## Advanced Features
+
+### Undo/Redo
+
+The editor includes built-in undo/redo support:
+
+- **Ctrl/Cmd + Z** - Undo
+- **Ctrl/Cmd + Shift + Z** or **Ctrl/Cmd + Y** - Redo
+
+### Custom Key Bindings
+
+Intercept key events for custom behavior:
+
+```rust
+.on_key_down(move |e: Event<KeyboardEventData>| {
+    // Custom key handling
+    if e.modifiers.ctrl() && e.key == Key::S {
+        // Handle Ctrl+S (save)
+        return;
+    }
+    
+    // Default handling
+    editable.process_event(EditableEvent::KeyDown {
+        key: &e.key,
+        modifiers: e.modifiers,
+    });
+})
+```
+
+## Next Steps
+
+- Explore the [Input Component API](/components/input) for pre-built functionality
+- Learn about [CodeEditor](/modules/code-editor) for syntax-highlighted editing
+- Check out [Events](/concepts/events) for more on event handling

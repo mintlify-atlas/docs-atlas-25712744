@@ -1,0 +1,205 @@
+---
+title: Code Editor
+description: Syntax-highlighted code editor component for Freya applications
+---
+
+The Code Editor module provides a fully-featured code editing component with syntax highlighting, line numbers, and support for multiple programming languages.
+
+## Installation
+
+Enable the `code-editor` feature in your `Cargo.toml`:
+
+```toml
+[dependencies]
+freya = { version = "0.4", features = ["code-editor"] }
+```
+
+## Basic Usage
+
+```rust
+use freya::{
+    code_editor::*,
+    prelude::*,
+};
+use ropey::Rope;
+
+fn app() -> impl IntoElement {
+    let focus = use_focus();
+    let editor = use_state(|| {
+        let rope = Rope::from_str("fn main() {\n    println!(\"Hello, world!\");\n}");
+        let mut editor = CodeEditorData::new(rope, LanguageId::Rust);
+        editor.parse();
+        editor.measure(14.);
+        editor
+    });
+
+    CodeEditor::new(editor, focus.a11y_id())
+}
+```
+
+## Features
+
+- **Syntax Highlighting**: Built-in support for multiple programming languages
+- **Line Numbers**: Optional gutter with line numbers
+- **Customizable Themes**: Full control over editor appearance and syntax colors
+- **Rope-based Text Storage**: Efficient text editing using the `ropey` crate
+- **Read-only Mode**: Display code without allowing edits
+- **Whitespace Visualization**: Show leading whitespace characters
+
+## Supported Languages
+
+The editor supports syntax highlighting for:
+
+- Rust
+- Python
+- JavaScript
+- TypeScript
+- Markdown
+- TOML
+- JSON
+
+```rust
+let editor = CodeEditorData::new(rope, LanguageId::Rust);
+// or
+let lang = LanguageId::parse("rs"); // Parse from file extension
+```
+
+## Customization
+
+### Editor Theme
+
+Customize the editor's appearance:
+
+```rust
+let custom_theme = use_state(|| EditorTheme {
+    background: (20, 20, 20).into(),
+    ..Default::default()
+});
+
+CodeEditor::new(editor, focus.a11y_id())
+    .theme(custom_theme)
+```
+
+### Syntax Theme
+
+Customize syntax highlighting colors:
+
+```rust
+let mut editor = CodeEditorData::new(rope, LanguageId::Rust);
+editor.set_theme(SyntaxTheme {
+    comment: (230, 230, 230).into(),
+    keyword: (255, 100, 100).into(),
+    string: (100, 255, 100).into(),
+    ..Default::default()
+});
+```
+
+### Configuration Options
+
+```rust
+CodeEditor::new(editor, focus.a11y_id())
+    .font_size(16.0)           // Set font size
+    .line_height(1.5)          // Set line height multiplier
+    .read_only(true)           // Make editor read-only
+    .gutter(false)             // Hide line numbers
+    .show_whitespace(false)    // Hide whitespace characters
+```
+
+## Loading Files
+
+```rust
+use std::path::PathBuf;
+
+let editor = use_state(|| {
+    let path = PathBuf::from("./src/main.rs");
+    let content = std::fs::read_to_string(&path).unwrap();
+    let rope = Rope::from_str(&content);
+    let mut editor = CodeEditorData::new(rope, LanguageId::Rust);
+    editor.parse();
+    editor.measure(14.);
+    editor
+});
+```
+
+## Key Types
+
+### CodeEditorData
+
+The main data structure that holds the editor state:
+
+```rust
+let mut editor = CodeEditorData::new(rope, language_id);
+editor.parse();      // Parse syntax
+editor.measure(14.); // Measure text at font size
+```
+
+### EditorTheme
+
+Controls the editor's visual appearance:
+
+```rust
+EditorTheme {
+    background: Color,
+    // ... other theme properties
+}
+```
+
+### SyntaxTheme
+
+Controls syntax highlighting colors:
+
+```rust
+SyntaxTheme {
+    comment: Color,
+    keyword: Color,
+    string: Color,
+    // ... other syntax colors
+}
+```
+
+## Example: Complete Editor
+
+```rust
+use freya::{
+    code_editor::*,
+    prelude::*,
+};
+use ropey::Rope;
+use std::path::PathBuf;
+
+fn main() {
+    launch(LaunchConfig::default().with_window(WindowConfig::new(app)));
+}
+
+fn app() -> impl IntoElement {
+    use_init_theme(|| DARK_THEME);
+    let focus = use_focus();
+    
+    let custom_theme = use_state(|| EditorTheme {
+        background: (20, 20, 20).into(),
+        ..Default::default()
+    });
+    
+    let editor = use_state(move || {
+        let path = PathBuf::from("./src/main.rs");
+        let rope = Rope::from_str(&std::fs::read_to_string(&path).unwrap());
+        let mut editor = CodeEditorData::new(rope, LanguageId::Rust);
+        editor.set_theme(SyntaxTheme {
+            comment: (230, 230, 230).into(),
+            ..Default::default()
+        });
+        editor.parse();
+        editor.measure(14.);
+        editor
+    });
+
+    CodeEditor::new(editor, focus.a11y_id()).theme(custom_theme)
+}
+```
+
+## Notes
+
+- The editor uses the `ropey` crate for efficient text handling
+- Syntax parsing happens on-demand via `editor.parse()`
+- Call `editor.measure(font_size)` after loading content
+- The editor is a fully reactive component that updates when the state changes

@@ -1,0 +1,236 @@
+---
+title: Border
+description: Border styling for elements in Freya.
+---
+
+## Overview
+
+The `Border` type allows you to add borders around elements with customizable width, color, and alignment.
+
+## Creating Borders
+
+### Basic Border
+
+```rust
+use freya::prelude::*;
+
+let border = Border::new()
+    .fill(Color::from_rgb(255, 100, 50))
+    .width(2.0);
+```
+
+### Builder Pattern
+
+Borders use a fluent builder API:
+
+```rust
+let border = Border::new()
+    .fill((255, 100, 50))              // Color from tuple
+    .width(2.0)                        // Uniform width
+    .alignment(BorderAlignment::Inner);
+```
+
+## Border Properties
+
+### Border Width
+
+The `BorderWidth` type controls the width of each side:
+
+```rust
+use freya::prelude::*;
+
+// Uniform width on all sides
+let border = Border::new().width(2.0);
+
+// Individual side widths
+let width = BorderWidth {
+    top: 2.0,
+    right: 3.0,
+    bottom: 2.0,
+    left: 3.0,
+};
+let border = Border::new().width(width);
+
+// From f32 (all sides equal)
+let width: BorderWidth = 2.0.into();
+```
+
+### Border Color
+
+```rust
+// From Color
+let border = Border::new().fill(Color::from_rgb(255, 100, 50));
+
+// From tuple
+let border = Border::new().fill((255, 100, 50));
+let border = Border::new().fill((255, 100, 50, 0.8));  // With alpha
+```
+
+### Border Alignment
+
+Control how the border is positioned relative to the element:
+
+```rust
+use freya::prelude::*;
+
+// Inner: Border drawn inside element bounds (default)
+let border = Border::new()
+    .alignment(BorderAlignment::Inner);
+
+// Outer: Border drawn outside element bounds
+let border = Border::new()
+    .alignment(BorderAlignment::Outer);
+
+// Center: Border centered on element edge
+let border = Border::new()
+    .alignment(BorderAlignment::Center);
+```
+
+## Usage Examples
+
+### Simple Border
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .width(Size::px(200.0))
+        .height(Size::px(100.0))
+        .border(Border::new()
+            .fill(Color::BLUE)
+            .width(2.0)
+        )
+}
+```
+
+### Asymmetric Border
+
+```rust
+fn app() -> impl IntoElement {
+    rect()
+        .width(Size::px(200.0))
+        .height(Size::px(100.0))
+        .border(Border::new()
+            .fill((100, 100, 200))
+            .width(BorderWidth {
+                top: 4.0,
+                right: 2.0,
+                bottom: 4.0,
+                left: 2.0,
+            })
+        )
+}
+```
+
+### Outer Border
+
+```rust
+fn app() -> impl IntoElement {
+    rect()
+        .width(Size::px(200.0))
+        .height(Size::px(100.0))
+        .border(Border::new()
+            .fill((41, 37, 36))
+            .width(1.0)
+            .alignment(BorderAlignment::Outer)
+        )
+}
+```
+
+### With Corner Radius
+
+Borders work seamlessly with rounded corners:
+
+```rust
+fn app() -> impl IntoElement {
+    rect()
+        .width(Size::px(200.0))
+        .height(Size::px(100.0))
+        .corner_radius(8.0)
+        .border(Border::new()
+            .fill(Color::from_rgb(255, 100, 50))
+            .width(2.0)
+        )
+}
+```
+
+## Border Visibility
+
+Borders are only rendered if:
+1. At least one side has width > 0
+2. The color is not transparent
+
+```rust
+// This border won't be visible
+let invisible = Border::new()
+    .fill(Color::TRANSPARENT)
+    .width(2.0);
+
+// This border won't be visible either
+let invisible = Border::new()
+    .fill(Color::BLUE)
+    .width(0.0);
+```
+
+## Corner Radius
+
+Control rounded corners with `CornerRadius`:
+
+```rust
+use freya::prelude::*;
+
+// Uniform radius
+let radius = CornerRadius::new_all(8.0);
+let radius: CornerRadius = 8.0.into();
+
+// Individual corners
+let radius = CornerRadius {
+    top_left: 8.0,
+    top_right: 4.0,
+    bottom_right: 8.0,
+    bottom_left: 4.0,
+    smoothing: 0.0,
+};
+
+// With smoothing (squircle effect)
+let radius = CornerRadius {
+    top_left: 16.0,
+    top_right: 16.0,
+    bottom_right: 16.0,
+    bottom_left: 16.0,
+    smoothing: 0.6,  // 0.0 = normal, 1.0 = full squircle
+};
+```
+
+### Using Corner Radius
+
+```rust
+fn app() -> impl IntoElement {
+    rect()
+        .corner_radius(12.0)
+        .background(Color::BLUE)
+        .border(Border::new()
+            .fill(Color::WHITE)
+            .width(2.0)
+        )
+}
+```
+
+## Pretty Printing
+
+Borders have debug representations:
+
+```rust
+let border = Border::new()
+    .width(2.0)
+    .alignment(BorderAlignment::Inner);
+
+println!("{}", border.pretty()); // "2 2 2 2 Inner"
+```
+
+## See Also
+
+- [Colors](/api/styling/colors)
+- [Shadows](/api/styling/shadows)
+- [Sizes](/api/styling/sizes)

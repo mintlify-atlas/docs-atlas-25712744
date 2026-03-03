@@ -1,0 +1,249 @@
+---
+title: launch
+description: Launch a Freya application with window and plugin configuration
+---
+
+The `launch()` function is the entry point for all Freya applications. It initializes the event loop, sets up the renderer, and launches your application windows.
+
+## Function Signature
+
+```rust
+pub fn launch(launch_config: LaunchConfig)
+```
+
+<ParamField path="launch_config" type="LaunchConfig" required>
+  Configuration object that defines windows, plugins, fonts, and other application settings.
+</ParamField>
+
+## LaunchConfig
+
+Configuration builder for launching Freya applications.
+
+### Constructor
+
+```rust
+impl LaunchConfig {
+    pub fn new() -> LaunchConfig
+}
+```
+
+Creates a new `LaunchConfig` with default settings.
+
+### Configuration Methods
+
+#### with_window
+
+```rust
+pub fn with_window(self, window_config: WindowConfig) -> Self
+```
+
+<ParamField path="window_config" type="WindowConfig" required>
+  Configuration for a window to create. You can call this multiple times to create multiple windows.
+</ParamField>
+
+Registers a window configuration. Each call creates an additional window.
+
+**Example:**
+```rust
+LaunchConfig::new()
+    .with_window(WindowConfig::new(app))
+    .with_window(WindowConfig::new(secondary_app))
+```
+
+#### with_plugin
+
+```rust
+pub fn with_plugin(self, plugin: impl FreyaPlugin + 'static) -> Self
+```
+
+<ParamField path="plugin" type="impl FreyaPlugin" required>
+  A plugin instance that implements the FreyaPlugin trait.
+</ParamField>
+
+Registers a Freya plugin for extending functionality.
+
+**Example:**
+```rust
+LaunchConfig::new()
+    .with_window(WindowConfig::new(app))
+    .with_plugin(MyCustomPlugin::new())
+```
+
+#### with_font
+
+```rust
+pub fn with_font(
+    self,
+    font_name: impl Into<Cow<'static, str>>,
+    font: impl Into<Bytes>
+) -> Self
+```
+
+<ParamField path="font_name" type="impl Into<Cow<'static, str>>" required>
+  The name to register the font under.
+</ParamField>
+
+<ParamField path="font" type="impl Into<Bytes>" required>
+  The font data as bytes.
+</ParamField>
+
+Embeds a custom font into the application.
+
+**Example:**
+```rust
+const CUSTOM_FONT: &[u8] = include_bytes!("../assets/CustomFont.ttf");
+
+LaunchConfig::new()
+    .with_window(WindowConfig::new(app))
+    .with_font("Custom Font", CUSTOM_FONT)
+```
+
+#### with_fallback_font
+
+```rust
+pub fn with_fallback_font(self, font_family: impl Into<Cow<'static, str>>) -> Self
+```
+
+<ParamField path="font_family" type="impl Into<Cow<'static, str>>" required>
+  Name of the fallback font family to use.
+</ParamField>
+
+Registers a fallback font. Will be used if the default fonts are not available.
+
+#### with_default_font
+
+```rust
+pub fn with_default_font(self, font_name: impl Into<Cow<'static, str>>) -> Self
+```
+
+<ParamField path="font_name" type="impl Into<Cow<'static, str>>" required>
+  Name of the default font to use.
+</ParamField>
+
+Registers a default font. Will be used if found. This font takes precedence over fallback fonts.
+
+#### with_future
+
+```rust
+pub fn with_future<F, Fut>(self, task: F) -> Self
+where
+    F: FnOnce(LaunchProxy) -> Fut + 'static,
+    Fut: Future<Output = ()> + 'static,
+```
+
+<ParamField path="task" type="F" required>
+  A function that takes a LaunchProxy and returns a Future.
+</ParamField>
+
+Registers a single-threaded launch task. The task receives a `LaunchProxy` that can be used to access the renderer context. The provided callback returns a `'static` future which will be scheduled on the renderer thread and polled until completion.
+
+**Example:**
+```rust
+LaunchConfig::new()
+    .with_window(WindowConfig::new(app))
+    .with_future(|proxy| async move {
+        // Background task that runs on the renderer thread
+        loop {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            // Do something
+        }
+    })
+```
+
+#### with_tray (requires "tray" feature)
+
+```rust
+#[cfg(feature = "tray")]
+pub fn with_tray(
+    self,
+    tray_icon: impl FnOnce() -> tray_icon::TrayIcon + 'static + Send,
+    tray_handler: impl FnMut(TrayEvent, RendererContext) + 'static
+) -> Self
+```
+
+<ParamField path="tray_icon" type="impl FnOnce() -> tray_icon::TrayIcon" required>
+  Function that creates and returns a tray icon.
+</ParamField>
+
+<ParamField path="tray_handler" type="impl FnMut(TrayEvent, RendererContext)" required>
+  Callback function to handle tray events.
+</ParamField>
+
+Registers a system tray icon and its event handler.
+
+### Utility Methods
+
+#### window_icon
+
+```rust
+pub fn window_icon(icon: &[u8]) -> Icon
+```
+
+<ParamField path="icon" type="&[u8]" required>
+  Image data in a supported format (PNG, JPEG, etc.).
+</ParamField>
+
+Creates a window icon from image bytes.
+
+**Returns:** `Icon` - A window icon that can be used with `WindowConfig::with_icon()`.
+
+**Example:**
+```rust
+const ICON: &[u8] = include_bytes!("../assets/icon.png");
+let icon = LaunchConfig::window_icon(ICON);
+
+WindowConfig::new(app).with_icon(icon)
+```
+
+#### tray_icon (requires "tray" feature)
+
+```rust
+#[cfg(feature = "tray")]
+pub fn tray_icon(icon: &[u8]) -> tray_icon::Icon
+```
+
+<ParamField path="icon" type="&[u8]" required>
+  Image data in a supported format (PNG, JPEG, etc.).
+</ParamField>
+
+Creates a tray icon from image bytes.
+
+**Returns:** `tray_icon::Icon` - A tray icon that can be used with the tray feature.
+
+## Complete Example
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(
+                WindowConfig::new(app)
+                    .with_size(800., 600.)
+                    .with_title("My Freya App")
+            )
+            .with_font("Custom Font", include_bytes!("../assets/font.ttf"))
+            .with_future(|_proxy| async {
+                // Background tasks
+            })
+    )
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .center()
+        .child("Hello, Freya!")
+}
+```
+
+## Location
+
+Defined in: `/home/daytona/workspace/source/crates/freya-winit/src/lib.rs:46`
+
+## Related
+
+- [WindowConfig](/api/launch) - Configure individual windows
+- [app function](/api/app) - Create application entry points
+- [Component trait](/api/component) - Build reusable UI components

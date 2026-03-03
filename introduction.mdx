@@ -1,0 +1,199 @@
+---
+title: Introduction to Freya
+description: A cross-platform native GUI framework for Rust powered by Skia
+---
+
+<img
+  src="https://github.com/marc2332/freya/raw/main/logo.svg"
+  alt="Freya Logo"
+  width="150"
+  style={{ marginBottom: '20px' }}
+/>
+
+# Welcome to Freya
+
+Freya is a **cross-platform, native, declarative** GUI library for Rust 🦀 powered by Skia.
+
+Build beautiful, performant desktop applications with a modern component-based architecture that automatically re-renders when state changes. Freya combines the power of Rust's safety guarantees with Skia's battle-tested graphics engine to deliver smooth, native experiences on Windows, macOS, and Linux.
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Build your first counter app in minutes
+  </Card>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Set up your development environment
+  </Card>
+  <Card
+    title="Components"
+    icon="cube"
+    href="/components"
+  >
+    Explore built-in UI components
+  </Card>
+  <Card
+    title="Examples"
+    icon="code"
+    href="https://github.com/marc2332/freya/tree/main/examples"
+  >
+    Browse 100+ real-world examples
+  </Card>
+</CardGroup>
+
+## Why Freya?
+
+### Declarative & Reactive
+
+Write UI code that's easy to understand and maintain. Components automatically update when state changes - no manual DOM manipulation required.
+
+```rust
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 0);
+
+    rect()
+        .center()
+        .expanded()
+        .child(
+            Button::new()
+                .on_press(move |_| *count.write() += 1)
+                .child(format!("Clicked {} times", count.read()))
+        )
+}
+```
+
+### Powered by Skia
+
+Leverage the same graphics engine used by Chrome, Android, and Flutter. Get smooth animations, advanced rendering effects, and consistent cross-platform visuals.
+
+### Rich Feature Set
+
+<CardGroup cols={3}>
+  <Card title="State Management" icon="database">
+    Local state with `use_state` and global state with freya-radio
+  </Card>
+  <Card title="Smooth Animations" icon="wand-magic-sparkles">
+    Built-in animation system with easing functions
+  </Card>
+  <Card title="Routing" icon="route">
+    Type-safe navigation with freya-router
+  </Card>
+  <Card title="Text Editing" icon="keyboard">
+    Rich text editing with cursor management and selection
+  </Card>
+  <Card title="Code Editor" icon="code">
+    Full-featured code editor with syntax highlighting
+  </Card>
+  <Card title="Internationalization" icon="globe">
+    Multi-language support with Fluent
+  </Card>
+  <Card title="WebView Integration" icon="window">
+    Embed web content in native apps
+  </Card>
+  <Card title="Terminal Emulation" icon="terminal">
+    Full PTY support for terminal apps
+  </Card>
+  <Card title="Testing" icon="flask">
+    Headless testing framework included
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Component System
+
+Freya's component model lets you create reusable UI elements. Components can hold internal state or subscribe to shared state, and they produce UI as their output.
+
+```rust
+#[derive(PartialEq)]
+struct Counter(i32);
+
+impl Component for Counter {
+    fn render(&self) -> impl IntoElement {
+        let mut count = use_state(|| self.0);
+
+        Button::new()
+            .on_press(move |_| *count.write() += 1)
+            .child(format!("Count: {}", count.read()))
+    }
+}
+```
+
+### Built-in Components
+
+Freya includes a comprehensive library of ready-to-use components:
+
+- **Basic**: Button, Switch, Slider, Input, Checkbox
+- **Advanced**: VirtualScrollView, Calendar, ColorPicker, Dropdown
+- **Layout**: Containers with flexbox-like positioning
+- **Media**: Image, SVG, GIF support
+
+### Smooth Animations
+
+Create fluid transitions for colors, sizes, positions, and more with full control over timing and easing.
+
+```rust
+fn app() -> impl IntoElement {
+    let mut animation = use_animation(|_| 
+        AnimColor::new((246, 240, 240), (205, 86, 86)).time(400)
+    );
+
+    rect()
+        .background(&*animation.read())
+        .child(
+            Button::new()
+                .on_press(move |_| animation.start())
+                .child("Animate")
+        )
+}
+```
+
+### Developer Experience
+
+- **Fast Compile Times**: Optimized for quick iteration
+- **Hot Reload**: See changes instantly during development
+- **DevTools**: Inspect component tree in real-time
+- **Type Safety**: Catch errors at compile time with Rust
+
+## Community & Support
+
+<CardGroup cols={2}>
+  <Card
+    title="Discord Community"
+    icon="discord"
+    href="https://discord.gg/sYejxCdewG"
+  >
+    Join our Discord server for help and discussions
+  </Card>
+  <Card
+    title="GitHub Repository"
+    icon="github"
+    href="https://github.com/marc2332/freya"
+  >
+    Star the repo and contribute to development
+  </Card>
+  <Card
+    title="API Documentation"
+    icon="book"
+    href="https://docs.rs/freya/"
+  >
+    Comprehensive API reference on docs.rs
+  </Card>
+  <Card
+    title="Sponsor the Project"
+    icon="heart"
+    href="https://github.com/sponsors/marc2332"
+  >
+    Support ongoing development
+  </Card>
+</CardGroup>
+
+## Ready to Get Started?
+
+Follow our [installation guide](/installation) to set up your development environment, then build your first app with our [quick start tutorial](/quickstart).

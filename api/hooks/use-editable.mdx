@@ -1,0 +1,347 @@
+---
+title: 'use_editable'
+description: 'Manage editable text content with selection and history'
+icon: 'pen-to-square'
+---
+
+Manages editable text content with support for text selection, editing operations, and undo/redo history.
+
+<Warning>
+This is a low-level hook. Most applications should use the `Input` component instead, which provides a complete text input experience.
+</Warning>
+
+## Function Signature
+
+```rust
+pub fn use_editable(
+    content: impl FnOnce() -> String,
+    config: impl FnOnce() -> EditableConfig,
+) -> UseEditable
+```
+
+## Parameters
+
+<ParamField path="content" type="impl FnOnce() -> String" required>
+  A closure that returns the initial text content for the editor.
+</ParamField>
+
+<ParamField path="config" type="impl FnOnce() -> EditableConfig" required>
+  A closure that returns the editor configuration, including settings like indentation.
+</ParamField>
+
+## Return Type
+
+Returns a `UseEditable` which provides access to the text editor and methods to process editing events.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn text_editor() -> impl IntoElement {
+    let mut editable = use_editable(
+        || "Initial text".to_string(),
+        EditableConfig::new
+    );
+
+    rect()
+        .on_key_down(move |event| {
+            editable.process_event(EditableEvent::KeyDown(event));
+        })
+        .child(editable.editor().text())
+}
+```
+
+## Configuration
+
+### `EditableConfig`
+
+Configure the editor behavior:
+
+```rust
+let editable = use_editable(
+    || String::new(),
+    || {
+        EditableConfig::new()
+            .with_indentation("    ")  // Use 4 spaces for indentation
+    }
+);
+```
+
+## Accessing the Editor
+
+### Read-only access
+
+```rust
+let editable = use_editable(|| String::new(), EditableConfig::new);
+
+// Get reference to the editor
+let editor = editable.editor();
+let text = editor.read().text();
+let cursor_pos = editor.read().cursor_pos();
+```
+
+### Mutable access
+
+```rust
+let mut editable = use_editable(|| String::new(), EditableConfig::new);
+
+// Get mutable reference to the editor
+let editor = editable.editor_mut();
+editor.write().insert_text("Hello");
+```
+
+## Processing Events
+
+### `EditableEvent`
+
+The editor processes various events:
+
+```rust
+use freya::prelude::*;
+
+fn editor() -> impl IntoElement {
+    let mut editable = use_editable(
+        || String::new(),
+        EditableConfig::new
+    );
+
+    rect()
+        .on_key_down(move |event| {
+            editable.process_event(EditableEvent::KeyDown(event));
+        })
+        .on_mouse_down(move |event| {
+            editable.process_event(EditableEvent::MouseDown(event));
+        })
+        .on_mouse_move(move |event| {
+            editable.process_event(EditableEvent::MouseMove(event));
+        })
+        .on_mouse_up(move |_| {
+            editable.process_event(EditableEvent::MouseUp);
+        })
+}
+```
+
+## Editor Operations
+
+The `RopeEditor` (accessed via `.editor()`) supports many operations:
+
+### Text manipulation
+
+```rust
+let mut editor = editable.editor_mut();
+
+// Insert text at cursor
+editor.write().insert_text("Hello");
+
+// Delete selection or character
+editor.write().delete_selection();
+
+// Get current text
+let text = editor.read().text();
+
+// Get selected text
+let selection = editor.read().selected_text();
+```
+
+### Cursor and selection
+
+```rust
+let mut editor = editable.editor_mut();
+
+// Move cursor
+editor.write().move_cursor_left();
+editor.write().move_cursor_right();
+editor.write().move_cursor_up();
+editor.write().move_cursor_down();
+
+// Selection
+editor.write().select_all();
+editor.write().clear_selection();
+
+// Get cursor position
+let pos = editor.read().cursor_pos();
+```
+
+### History
+
+```rust
+let mut editor = editable.editor_mut();
+
+// Undo/redo
+editor.write().undo();
+editor.write().redo();
+```
+
+## Examples
+
+### Basic text input
+
+```rust
+use freya::prelude::*;
+
+fn simple_input() -> impl IntoElement {
+    let mut editable = use_editable(
+        || String::new(),
+        EditableConfig::new
+    );
+
+    rect()
+        .border("1 solid black")
+        .padding(8)
+        .on_key_down(move |event| {
+            editable.process_event(EditableEvent::KeyDown(event));
+        })
+        .child(editable.editor().read().text())
+}
+```
+
+### Multi-line editor with line numbers
+
+```rust
+use freya::prelude::*;
+
+fn code_editor() -> impl IntoElement {
+    let mut editable = use_editable(
+        || "fn main() {\n    println!(\"Hello\");\n}".to_string(),
+        || EditableConfig::new().with_indentation("    ")
+    );
+
+    let editor = editable.editor();
+    let lines: Vec<&str> = editor.read().text().lines().collect();
+
+    rect()
+        .on_key_down(move |event| {
+            editable.process_event(EditableEvent::KeyDown(event));
+        })
+        .children(lines.iter().enumerate().map(|(i, line)| {
+            rect()
+                .child(format!("{:3} | {}", i + 1, line))
+        }))
+}
+```
+
+### With placeholder
+
+```rust
+use freya::prelude::*;
+
+fn input_with_placeholder() -> impl IntoElement {
+    let mut editable = use_editable(
+        || String::new(),
+        EditableConfig::new
+    );
+
+    let is_empty = editable.editor().read().text().is_empty();
+
+    rect()
+        .on_key_down(move |event| {
+            editable.process_event(EditableEvent::KeyDown(event));
+        })
+        .child(
+            if is_empty {
+                label().text("Type something...").color(Color::GRAY)
+            } else {
+                label().text(editable.editor().read().text())
+            }
+        )
+}
+```
+
+### Custom keyboard shortcuts
+
+```rust
+use freya::prelude::*;
+use keyboard_types::{Key, Modifiers};
+
+fn editor_with_shortcuts() -> impl IntoElement {
+    let mut editable = use_editable(
+        || String::new(),
+        EditableConfig::new
+    );
+
+    rect()
+        .on_key_down(move |event| {
+            // Custom Ctrl+S handler
+            if event.key == Key::Character("s".to_string()) 
+                && event.modifiers.contains(Modifiers::CONTROL) {
+                save_content(editable.editor().read().text());
+                return;
+            }
+
+            // Process normal events
+            editable.process_event(EditableEvent::KeyDown(event));
+        })
+        .child(editable.editor().read().text())
+}
+
+fn save_content(text: String) {
+    println!("Saving: {}", text);
+}
+```
+
+## Integration with Input Component
+
+The `Input` component uses `use_editable` internally:
+
+```rust
+use freya::prelude::*;
+
+fn input_example() -> impl IntoElement {
+    let text = use_state(String::new);
+
+    // Input component handles all the editable setup
+    rect().child(
+        Input::new()
+            .value(text)
+            .placeholder("Enter text...")
+    )
+}
+```
+
+## When to Use
+
+Use `use_editable` when you need:
+- Custom text editing behavior
+- Fine-grained control over editing operations
+- Integration with custom UI components
+- Special keyboard handling
+
+**Use the `Input` component instead when:**
+- You need a standard text input
+- You want built-in styling and accessibility
+- You don't need custom editing logic
+
+## Features
+
+- **Rope-based text storage**: Efficient for large documents
+- **History support**: Built-in undo/redo with configurable history duration
+- **Selection tracking**: Handle text selection and dragging
+- **Cursor movement**: Keyboard navigation (arrows, home, end, etc.)
+- **Clipboard operations**: Cut, copy, paste support
+- **Indentation**: Configurable tab/space handling
+
+## Performance Notes
+
+- Uses rope data structure for efficient text operations on large documents
+- History is garbage collected based on time (configurable)
+- Text rendering is handled by the component using the editor
+
+## Related Components
+
+- **`Input`**: High-level text input component
+- **`use_state`**: For managing simple text values
+- **`use_focus`**: For managing input focus
+
+## Manual Creation
+
+For advanced use cases, you can create a `UseEditable` manually:
+
+```rust
+use freya::prelude::*;
+
+let editable = UseEditable::create(
+    "Initial content".to_string(),
+    EditableConfig::new()
+);
+```

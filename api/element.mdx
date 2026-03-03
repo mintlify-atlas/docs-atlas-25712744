@@ -1,0 +1,453 @@
+---
+title: Element
+description: Core element types and traits for building Freya UIs
+---
+
+The `Element` enum and related traits form the foundation of Freya's UI system. Elements represent nodes in the UI tree and can be either basic elements (like `rect`, `label`) or components.
+
+## Element Enum
+
+The core `Element` type that represents a node in the UI tree.
+
+```rust
+pub enum Element {
+    Component {
+        key: DiffKey,
+        comp: Rc<dyn Fn(Rc<dyn ComponentProps>) -> Element>,
+        props: Rc<dyn ComponentProps>,
+    },
+    Element {
+        key: DiffKey,
+        element: Rc<dyn ElementExt>,
+        elements: Vec<Element>,
+    },
+}
+```
+
+### Variants
+
+<ParamField path="Component" type="Component variant">
+  Represents a component that can create new state scopes and use hooks.
+  
+  - `key` - Unique identifier for reconciliation
+  - `comp` - Function that renders the component
+  - `props` - Component properties
+</ParamField>
+
+<ParamField path="Element" type="Element variant">
+  Represents a basic element like `rect()`, `label()`, etc.
+  
+  - `key` - Unique identifier for reconciliation
+  - `element` - The element implementation
+  - `elements` - Child elements
+</ParamField>
+
+## IntoElement Trait
+
+Converts types into `Element`. This is the primary trait for types that can be used in the UI tree.
+
+```rust
+pub trait IntoElement {
+    fn into_element(self) -> Element;
+}
+```
+
+<ParamField path="into_element" type="fn(self) -> Element" required>
+  Converts the implementing type into an Element.
+</ParamField>
+
+### Blanket Implementation
+
+```rust
+impl<T: Into<Element>> IntoElement for T {
+    fn into_element(self) -> Element {
+        self.into()
+    }
+}
+```
+
+Any type that implements `Into<Element>` automatically implements `IntoElement`.
+
+### Built-in Implementations
+
+#### String and &str
+
+```rust
+impl From<&str> for Element {
+    fn from(value: &str) -> Self {
+        label().text(value.to_string()).into()
+    }
+}
+
+impl From<String> for Element {
+    fn from(value: String) -> Self {
+        label().text(value).into()
+    }
+}
+```
+
+Strings automatically convert to label elements:
+
+```rust
+fn app() -> impl IntoElement {
+    rect()
+        .child("Hello, World!")  // Automatically becomes a label
+        .child(format!("Count: {}", 42))  // Also becomes a label
+}
+```
+
+#### Components
+
+```rust
+impl<T: Component> From<T> for Element
+```
+
+Any type implementing `Component` can be converted to an `Element`:
+
+```rust
+#[derive(PartialEq)]
+struct MyComponent;
+
+impl Component for MyComponent {
+    fn render(&self) -> impl IntoElement {
+        "Hello from component"
+    }
+}
+
+fn app() -> impl IntoElement {
+    rect().child(MyComponent)  // Automatically converts to Element
+}
+```
+
+#### Elements
+
+```rust
+impl From<Rect> for Element
+impl From<Label> for Element
+// ... other element types
+```
+
+All built-in elements like `Rect`, `Label`, `Svg`, etc. implement `From<T> for Element`.
+
+## ElementExt Trait
+
+Low-level trait that defines element behavior. This is typically only implemented for custom elements.
+
+```rust
+pub trait ElementExt: Any {
+    fn into_element(self) -> Element where Self: Sized + Into<Element>;
+    fn changed(&self, _other: &Rc<dyn ElementExt>) -> bool;
+    fn diff(&self, _other: &Rc<dyn ElementExt>) -> DiffModifies;
+    fn layout(&'_ self) -> Cow<'_, LayoutData>;
+    fn accessibility(&'_ self) -> Cow<'_, AccessibilityData>;
+    fn effect(&'_ self) -> Option<Cow<'_, EffectData>>;
+    fn style(&'_ self) -> Cow<'_, StyleState>;
+    fn text_style(&'_ self) -> Cow<'_, TextStyleData>;
+    fn layer(&self) -> Layer;
+    fn events_handlers(&'_ self) -> Option<Cow<'_, FxHashMap<EventName, EventHandlerType>>>;
+    fn measure(&self, _context: LayoutContext) -> Option<(Size2D, Rc<dyn Any>)>;
+    fn should_hook_measurement(&self) -> bool;
+    fn should_measure_inner_children(&self) -> bool;
+    fn is_point_inside(&self, context: EventMeasurementContext) -> bool;
+    fn clip(&self, _context: ClipContext);
+    fn render(&self, _context: RenderContext);
+    fn render_rect(&self, area: &Area, scale_factor: f32) -> SkRRect;
+}
+```
+
+You typically don't implement this trait directly. Instead, use the built-in elements and components.
+
+## Common Element Functions
+
+These functions create the basic building blocks of Freya UIs:
+
+### rect()
+
+```rust
+pub fn rect() -> Rect
+```
+
+Creates a rectangular container element. The equivalent of `div` in HTML or `View` in React Native.
+
+**Example:**
+```rust
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .background((255, 0, 0))
+        .corner_radius(8.)
+        .padding(16.)
+        .child("Content here")
+}
+```
+
+### label()
+
+```rust
+pub fn label() -> Label
+```
+
+Creates a text label element. A simplified version of paragraph.
+
+**Example:**
+```rust
+fn app() -> impl IntoElement {
+    label()
+        .text("Hello, World!")
+        .font_size(16.)
+        .color((0, 0, 0))
+}
+```
+
+### paragraph()
+
+```rust
+pub fn paragraph() -> Paragraph
+```
+
+Creates a rich text paragraph element with multiple spans.
+
+**Example:**
+```rust
+fn app() -> impl IntoElement {
+    paragraph()
+        .span(Span::new("Bold text").font_weight(FontWeight::BOLD))
+        .span(Span::new(" Normal text"))
+}
+```
+
+### svg()
+
+```rust
+pub fn svg() -> Svg
+```
+
+Creates an SVG graphics element.
+
+**Example:**
+```rust
+fn app() -> impl IntoElement {
+    svg()
+        .svg_data(svg_data)
+        .width(Size::pixels(100.))
+        .height(Size::pixels(100.))
+}
+```
+
+## Element Children
+
+Elements that can contain children use the `child()` and `children()` methods:
+
+### Single Child
+
+```rust
+rect().child(label().text("Single child"))
+```
+
+### Multiple Children
+
+```rust
+rect()
+    .child("First child")
+    .child("Second child")
+    .child(MyComponent { prop: 42 })
+```
+
+### Children Collection
+
+```rust
+let items = vec![1, 2, 3, 4, 5];
+
+rect().children(
+    items.iter().map(|i| {
+        label().text(format!("Item {}", i))
+    })
+)
+```
+
+## Element Keys
+
+Keys help the reconciliation algorithm identify which elements have changed, been added, or removed.
+
+```rust
+use freya::prelude::*;
+
+fn render_list(items: &[Item]) -> impl IntoElement {
+    rect().children(
+        items.iter().map(|item| {
+            rect()
+                .key(item.id)  // Use unique key
+                .child(label().text(&item.name))
+        })
+    )
+}
+```
+
+## PartialEq for Elements
+
+Elements implement `PartialEq` for reconciliation:
+
+```rust
+impl PartialEq for Element {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Component { key: key1, props: props1, .. },
+             Self::Component { key: key2, props: props2, .. }) => {
+                key1 == key2 && !props1.changed(props2.as_ref())
+            }
+            (Self::Element { key: key1, element: element1, elements: elements1 },
+             Self::Element { key: key2, element: element2, elements: elements2 }) => {
+                key1 == key2 && !element1.changed(element2) && elements1 == elements2
+            }
+            _ => false,
+        }
+    }
+}
+```
+
+Two elements are equal if:
+- Their keys match
+- Their props/element data hasn't changed
+- Their children are equal (for Element variant)
+
+## Render Contexts
+
+Elements use various context types during their lifecycle:
+
+### LayoutContext
+
+```rust
+pub struct LayoutContext<'a> {
+    pub node_id: NodeId,
+    pub torin_node: &'a torin::node::Node,
+    pub area_size: &'a Size2D,
+    pub font_collection: &'a FontCollection,
+    pub font_manager: &'a FontMgr,
+    pub text_style_state: &'a TextStyleState,
+    pub fallback_fonts: &'a [Cow<'static, str>],
+    pub scale_factor: f64,
+    pub text_cache: &'a mut TextCache,
+}
+```
+
+Provided to elements during layout measurement.
+
+### RenderContext
+
+```rust
+pub struct RenderContext<'a> {
+    pub font_collection: &'a mut FontCollection,
+    pub canvas: &'a Canvas,
+    pub layout_node: &'a LayoutNode,
+    pub text_style_state: &'a TextStyleState,
+    pub tree: &'a Tree,
+    pub scale_factor: f64,
+}
+```
+
+Provided to elements during rendering.
+
+### EventMeasurementContext
+
+```rust
+pub struct EventMeasurementContext<'a> {
+    pub cursor: ragnarok::CursorPoint,
+    pub layout_node: &'a LayoutNode,
+    pub scale_factor: f64,
+}
+```
+
+Used for determining if a point is inside an element.
+
+### ClipContext
+
+```rust
+pub struct ClipContext<'a> {
+    pub canvas: &'a Canvas,
+    pub visible_area: &'a Area,
+    pub scale_factor: f64,
+}
+```
+
+Used for clipping rendering to a specific area.
+
+## Example: Building a Custom Element
+
+While you typically use built-in elements, here's how they work internally:
+
+```rust
+use freya::prelude::*;
+
+// 1. Define the element data structure
+#[derive(PartialEq, Clone)]
+pub struct CustomElement {
+    pub style: StyleState,
+    pub layout: LayoutData,
+    // ... other data
+}
+
+// 2. Implement ElementExt
+impl ElementExt for CustomElement {
+    fn render(&self, context: RenderContext) {
+        // Custom rendering logic
+    }
+
+    fn layout(&self) -> Cow<'_, LayoutData> {
+        Cow::Borrowed(&self.layout)
+    }
+
+    // ... other methods
+}
+
+// 3. Create builder struct
+pub struct Custom {
+    element: CustomElement,
+    elements: Vec<Element>,
+    key: DiffKey,
+}
+
+// 4. Implement builder methods
+impl Custom {
+    pub fn new() -> Self {
+        Self {
+            element: CustomElement::default(),
+            elements: Vec::new(),
+            key: DiffKey::None,
+        }
+    }
+
+    pub fn custom_property(mut self, value: impl Into<Value>) -> Self {
+        self.element.custom_prop = value.into();
+        self
+    }
+}
+
+// 5. Implement Into<Element>
+impl From<Custom> for Element {
+    fn from(value: Custom) -> Self {
+        Element::Element {
+            key: value.key,
+            element: Rc::new(value.element),
+            elements: value.elements,
+        }
+    }
+}
+
+// 6. Create constructor function
+pub fn custom() -> Custom {
+    Custom::new()
+}
+```
+
+## Location
+
+Defined in:
+- `/home/daytona/workspace/source/crates/freya-core/src/element.rs`
+- Built-in elements in `/home/daytona/workspace/source/crates/freya-core/src/elements/`
+
+## Related
+
+- [Component trait](/api/component) - Create reusable components
+- [App trait](/api/app) - Root application components
+- [rect()](/api/elements/rect) - Container element
+- [label()](/api/elements/label) - Text element

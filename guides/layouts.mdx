@@ -1,0 +1,453 @@
+---
+title: Layout System
+description: Master Freya's layout system powered by Torin for flexible and performant UI layouts
+---
+
+Freya uses **Torin**, a custom layout engine designed for high-performance UI layouts. This guide will help you understand how to create flexible, responsive layouts in your Freya applications.
+
+## Layout Basics
+
+### Sizing
+
+Elements can be sized using the `Size` enum with several options:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .width(Size::px(200.))       // Fixed width in pixels
+        .height(Size::percent(50.))  // 50% of parent height
+}
+```
+
+#### Size Options
+
+- `Size::px(value)` - Fixed size in pixels
+- `Size::percent(value)` - Percentage of parent size
+- `Size::fill()` - Fill available space
+- `Size::fill_minimum()` - Fill to minimum required size
+- `Size::flex(ratio)` - Flexible size with ratio
+
+### Content Modes
+
+Control how elements size themselves based on their content:
+
+```rust
+rect()
+    .content(Content::Fit)  // Size to fit content
+```
+
+#### Content Types
+
+**Content::Fit** - Element sizes to fit its content:
+
+```rust
+rect()
+    .content(Content::Fit)
+    .background((125, 125, 125))
+    .padding(8.)
+    .child(
+        rect()
+            .background((255, 0, 0))
+            .width(Size::fill_minimum())
+            .height(Size::px(100.))
+            .child("Hello, World!")
+    )
+```
+
+**Content::Flex** - Enable flex sizing for children:
+
+```rust
+rect()
+    .content(Content::Flex)
+    .width(Size::fill())
+    .horizontal()
+    .child(
+        rect()
+            .width(Size::px(100.))  // Fixed width
+            .height(Size::px(100.))
+            .background((255, 50, 50))
+    )
+    .child(
+        rect()
+            .width(Size::flex(1.))   // Takes remaining space
+            .height(Size::px(100.))
+            .background((50, 255, 50))
+    )
+    .child(
+        rect()
+            .width(Size::px(100.))   // Fixed width
+            .height(Size::px(100.))
+            .background((50, 50, 255))
+    )
+```
+
+## Layout Direction
+
+### Vertical Layout (Default)
+
+Elements stack vertically by default:
+
+```rust
+rect()
+    .child("First")
+    .child("Second")
+    .child("Third")  // Stacks vertically
+```
+
+### Horizontal Layout
+
+Arrange elements horizontally:
+
+```rust
+rect()
+    .horizontal()  // Enable horizontal layout
+    .child(
+        rect()
+            .width(Size::px(100.))
+            .height(Size::px(100.))
+            .background((255, 0, 0))
+    )
+    .child(
+        rect()
+            .width(Size::px(100.))
+            .height(Size::px(100.))
+            .background((0, 255, 0))
+    )
+```
+
+## Alignment
+
+### Main Axis Alignment
+
+Control how children are positioned along the main axis:
+
+```rust
+rect()
+    .width(Size::fill())
+    .height(Size::px(200.))
+    .horizontal()
+    .main_align(Alignment::Center)  // Center horizontally
+    .children([
+        rect().width(Size::px(100.)).height(Size::px(100.)).background((255, 0, 0)),
+        rect().width(Size::px(100.)).height(Size::px(100.)).background((0, 255, 0)),
+        rect().width(Size::px(100.)).height(Size::px(100.)).background((0, 0, 255)),
+    ])
+```
+
+#### Alignment Options
+
+- `Alignment::Start` - Align to start (default)
+- `Alignment::Center` - Center alignment
+- `Alignment::End` - Align to end
+- `Alignment::SpaceBetween` - Even spacing between items
+- `Alignment::SpaceAround` - Even spacing around items
+- `Alignment::SpaceEvenly` - Equal spacing between and around items
+
+### Example: All Alignment Types
+
+```rust
+ScrollView::new()
+    .spacing(5.)
+    // Start alignment
+    .child(
+        rect()
+            .width(Size::fill())
+            .height(Size::px(200.))
+            .horizontal()
+            .main_align(Alignment::Start)
+            .children(cards())
+    )
+    // Center alignment
+    .child(
+        rect()
+            .width(Size::fill())
+            .height(Size::px(200.))
+            .horizontal()
+            .main_align(Alignment::Center)
+            .children(cards())
+    )
+    // End alignment
+    .child(
+        rect()
+            .width(Size::fill())
+            .height(Size::px(200.))
+            .horizontal()
+            .main_align(Alignment::End)
+            .children(cards())
+    )
+    // Space between
+    .child(
+        rect()
+            .width(Size::fill())
+            .height(Size::px(200.))
+            .horizontal()
+            .main_align(Alignment::SpaceBetween)
+            .children(cards())
+    )
+```
+
+### Cross Axis Alignment
+
+Align children perpendicular to the main axis:
+
+```rust
+rect()
+    .horizontal()
+    .cross_align(Alignment::Center)  // Center vertically
+    .child("Centered vertically")
+```
+
+## Spacing
+
+Add consistent spacing between children:
+
+```rust
+rect()
+    .spacing(16.)  // 16px between each child
+    .child("Item 1")
+    .child("Item 2")
+    .child("Item 3")
+```
+
+## Padding and Margin
+
+### Padding (Inside Spacing)
+
+```rust
+rect()
+    .padding(16.)           // All sides
+    .padding_horizontal(20.) // Left and right
+    .padding_vertical(10.)   // Top and bottom
+    .padding_left(5.)
+    .padding_right(5.)
+    .padding_top(8.)
+    .padding_bottom(8.)
+```
+
+### Margin (Outside Spacing)
+
+```rust
+rect()
+    .margin(16.)           // All sides
+    .margin_horizontal(20.) // Left and right
+    .margin_vertical(10.)   // Top and bottom
+```
+
+## Common Layout Patterns
+
+### Centered Content
+
+```rust
+rect()
+    .expanded()  // Fill parent
+    .center()    // Center both axes
+    .child("Centered content")
+```
+
+### Header-Content-Footer
+
+```rust
+rect()
+    .expanded()
+    // Header
+    .child(
+        rect()
+            .width(Size::fill())
+            .height(Size::px(60.))
+            .background((50, 50, 50))
+            .center()
+            .child("Header")
+    )
+    // Content (fills remaining space)
+    .child(
+        rect()
+            .width(Size::fill())
+            .height(Size::fill())
+            .center()
+            .child("Content Area")
+    )
+    // Footer
+    .child(
+        rect()
+            .width(Size::fill())
+            .height(Size::px(40.))
+            .background((50, 50, 50))
+            .center()
+            .child("Footer")
+    )
+```
+
+### Sidebar Layout
+
+```rust
+rect()
+    .expanded()
+    .horizontal()
+    // Sidebar
+    .child(
+        rect()
+            .width(Size::px(250.))
+            .height(Size::fill())
+            .background((40, 40, 40))
+            .child("Sidebar")
+    )
+    // Main content
+    .child(
+        rect()
+            .width(Size::fill())
+            .height(Size::fill())
+            .child("Main Content")
+    )
+```
+
+### Grid-like Layout
+
+```rust
+rect()
+    .expanded()
+    .spacing(8.)
+    // Row 1
+    .child(
+        rect()
+            .width(Size::fill())
+            .height(Size::px(100.))
+            .horizontal()
+            .spacing(8.)
+            .child(
+                rect()
+                    .width(Size::flex(1.))
+                    .height(Size::fill())
+                    .background((255, 0, 0))
+            )
+            .child(
+                rect()
+                    .width(Size::flex(1.))
+                    .height(Size::fill())
+                    .background((0, 255, 0))
+            )
+            .child(
+                rect()
+                    .width(Size::flex(1.))
+                    .height(Size::fill())
+                    .background((0, 0, 255))
+            )
+    )
+```
+
+### Responsive Card Grid
+
+```rust
+rect()
+    .width(Size::fill())
+    .horizontal()
+    .spacing(16.)
+    .children((0..3).map(|_| {
+        rect()
+            .width(Size::flex(1.))
+            .height(Size::px(200.))
+            .background((100, 100, 255))
+            .corner_radius(12.)
+            .padding(16.)
+            .child("Card")
+    }))
+```
+
+## Scrollable Layouts
+
+For content that exceeds the viewport:
+
+```rust
+ScrollView::new()
+    .spacing(8.)
+    .children((0..50).map(|i| {
+        rect()
+            .width(Size::fill())
+            .height(Size::px(50.))
+            .background((100, 150, 200))
+            .center()
+            .child(format!("Item {}", i))
+    }))
+```
+
+## Advanced Techniques
+
+### Aspect Ratio
+
+Maintain aspect ratio for images or video:
+
+```rust
+ImageViewer::new("image.png")
+    .aspect_ratio(AspectRatio::Max)
+    .width(Size::fill())
+```
+
+### Min/Max Constraints
+
+```rust
+rect()
+    .min_width(Size::px(200.))
+    .max_width(Size::px(600.))
+    .width(Size::percent(80.))  // 80% of parent, constrained
+```
+
+### Visible Area
+
+Access layout information programmatically:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let platform = Platform::get();
+    let root_size = platform.root_size.read();
+    
+    format!("Window size: {}x{}", root_size.width, root_size.height)
+}
+```
+
+## Performance Tips
+
+1. **Use `expanded()` instead of `Size::fill()` when possible** - it's more explicit and easier to read
+
+2. **Minimize layout nesting** - deep hierarchies can impact layout performance
+
+3. **Use `VirtualScrollView`** for large lists instead of regular `ScrollView`:
+
+```rust
+VirtualScrollView::new()
+    .length(1000)  // Total items
+    .item_size(50.) // Height of each item
+    .builder(move |i| {
+        rect()
+            .height(Size::px(50.))
+            .child(format!("Item {}", i))
+    })
+```
+
+4. **Avoid unnecessary re-layouts** - use specific sizing when possible instead of dynamic content sizing
+
+## Best Practices
+
+1. **Be explicit with sizing** - always specify width and height for predictable layouts
+
+2. **Use semantic spacing** - define spacing constants for consistency:
+
+```rust
+const SPACING_XS: f32 = 4.0;
+const SPACING_SM: f32 = 8.0;
+const SPACING_MD: f32 = 16.0;
+const SPACING_LG: f32 = 24.0;
+const SPACING_XL: f32 = 32.0;
+```
+
+3. **Start with `rect()`** - it's the most flexible container element
+
+4. **Compose layouts** - break complex layouts into reusable components
+
+## Next Steps
+
+- Learn about [Styling](/guides/styling) to add visual polish to your layouts
+- Explore [Components](/components/overview) for pre-built layout components
+- Check out [Torin documentation](/guides/layouts) for deep dive into the layout engine

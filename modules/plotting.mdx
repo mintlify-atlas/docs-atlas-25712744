@@ -1,0 +1,430 @@
+---
+title: Plotting and Charts
+description: Create interactive plots and charts using the Plotters library
+---
+
+The Plotting module provides a Plotters backend that renders charts directly into Freya's Skia canvas, enabling you to create rich data visualizations in your applications.
+
+## Installation
+
+Enable the `plot` feature in your `Cargo.toml`:
+
+```toml
+[dependencies]
+freya = { version = "0.4", features = ["plot"] }
+```
+
+## Basic Usage
+
+```rust
+use freya::{
+    plot::{
+        PlotSkiaBackend,
+        plotters::{
+            chart::ChartBuilder,
+            prelude::*,
+            style::{BLACK, BLUE, WHITE},
+        },
+    },
+    prelude::*,
+};
+
+fn on_render(ctx: &mut RenderContext) {
+    let backend = PlotSkiaBackend::new(
+        ctx.canvas,
+        ctx.font_collection,
+        ctx.layout_node.area.size.to_i32().to_tuple(),
+    )
+    .into_drawing_area();
+
+    backend.fill(&WHITE).unwrap();
+
+    let mut chart = ChartBuilder::on(&backend)
+        .caption("My Chart", ("sans", 20))
+        .x_label_area_size(40)
+        .y_label_area_size(50)
+        .build_cartesian_2d(0f64..10f64, 0f64..10f64)
+        .unwrap();
+
+    chart.configure_mesh().draw().unwrap();
+
+    chart.draw_series(
+        LineSeries::new(
+            (0..100).map(|x| {
+                let x = x as f64 / 10.0;
+                (x, x.sin())
+            }),
+            &BLUE,
+        )
+    ).unwrap();
+}
+
+fn app() -> impl IntoElement {
+    canvas(RenderCallback::new(on_render))
+        .expanded()
+}
+```
+
+## Features
+
+- **Full Plotters Support**: Access the entire Plotters library ecosystem
+- **2D and 3D Charts**: Create line charts, scatter plots, 3D surfaces, and more
+- **Interactive Plots**: Respond to mouse events for interactive visualizations
+- **Skia Rendering**: High-quality rendering using Freya's Skia backend
+- **Custom Styling**: Full control over colors, fonts, and appearance
+
+## Chart Types
+
+### Line Charts
+
+```rust
+fn on_render(ctx: &mut RenderContext) {
+    let backend = PlotSkiaBackend::new(
+        ctx.canvas,
+        ctx.font_collection,
+        ctx.layout_node.area.size.to_i32().to_tuple(),
+    )
+    .into_drawing_area();
+
+    backend.fill(&WHITE).unwrap();
+
+    let mut chart = ChartBuilder::on(&backend)
+        .caption("Line Chart", ("sans", 30))
+        .margin(10)
+        .x_label_area_size(40)
+        .y_label_area_size(50)
+        .build_cartesian_2d(-3.0..3.0, -1.5..1.5)
+        .unwrap();
+
+    chart.configure_mesh().draw().unwrap();
+
+    chart.draw_series(
+        LineSeries::new(
+            (-100..100).map(|x| {
+                let x = x as f64 / 30.0;
+                (x, x.sin())
+            }),
+            &BLUE,
+        )
+    ).unwrap();
+}
+```
+
+### 3D Surface Plots
+
+```rust
+use freya::plot::plotters::series::SurfaceSeries;
+
+fn on_render(ctx: &mut RenderContext, (pitch, yaw, scale): (f64, f64, f64)) {
+    let backend = PlotSkiaBackend::new(
+        ctx.canvas,
+        ctx.font_collection,
+        ctx.layout_node.area.size.to_i32().to_tuple(),
+    )
+    .into_drawing_area();
+
+    backend.fill(&WHITE).unwrap();
+
+    let x_axis = (-3.0..3.0).step(0.1);
+    let z_axis = (-3.0..3.0).step(0.1);
+
+    let mut chart = ChartBuilder::on(&backend)
+        .caption("3D Surface", ("sans", 20))
+        .build_cartesian_3d(x_axis.clone(), -3.0..3.0, z_axis.clone())
+        .unwrap();
+
+    chart.with_projection(|mut pb| {
+        pb.pitch = pitch;
+        pb.yaw = yaw;
+        pb.scale = scale;
+        pb.into_matrix()
+    });
+
+    chart
+        .configure_axes()
+        .light_grid_style(BLACK.mix(0.15))
+        .max_light_lines(3)
+        .draw()
+        .unwrap();
+
+    chart
+        .draw_series(
+            SurfaceSeries::xoz(
+                (-30..30).map(|f| f as f64 / 10.0),
+                (-30..30).map(|f| f as f64 / 10.0),
+                |x, z| (x * x + z * z).cos(),
+            )
+            .style(BLUE.mix(0.2).filled()),
+        )
+        .unwrap();
+}
+```
+
+### Scatter Plots
+
+```rust
+use freya::plot::plotters::series::PointSeries;
+
+chart.draw_series(
+    PointSeries::of_element(
+        data.iter().map(|&(x, y)| (x, y)),
+        5,
+        &BLUE,
+        &|coord, size, style| {
+            Circle::new(coord, size, style.filled())
+        },
+    )
+).unwrap();
+```
+
+### Bar Charts
+
+```rust
+use freya::plot::plotters::prelude::Rectangle;
+
+let data = vec![("A", 3), ("B", 7), ("C", 5), ("D", 9)];
+
+chart.draw_series(
+    data.iter().map(|&(label, value)| {
+        let x0 = label;
+        let x1 = label;
+        Rectangle::new(
+            [(x0, 0), (x1, value)],
+            BLUE.filled(),
+        )
+    })
+).unwrap();
+```
+
+## Interactive Plots
+
+Create interactive visualizations that respond to user input:
+
+```rust
+fn app() -> impl IntoElement {
+    let mut cursor_position = use_state(CursorPoint::default);
+
+    let on_global_mouse_move = move |e: Event<MouseEventData>| {
+        if e.global_location.to_tuple() != (-1., -1.) {
+            cursor_position.set(e.global_location);
+            let platform = Platform::get();
+            platform.send(UserEvent::RequestRedraw);
+        }
+    };
+
+    canvas(RenderCallback::new(move |context| {
+        let (x, y) = cursor_position().to_tuple();
+        render_plot(context, x, y);
+    }))
+    .expanded()
+    .on_global_mouse_move(on_global_mouse_move)
+}
+
+fn render_plot(ctx: &mut RenderContext, cursor_x: f64, cursor_y: f64) {
+    // Use cursor position to adjust plot (e.g., rotation)
+    let pitch = std::f64::consts::PI * (0.5 - cursor_y / ctx.layout_node.area.height() as f64);
+    let yaw = std::f64::consts::PI * 2.0 * (cursor_x / ctx.layout_node.area.width() as f64 - 0.5);
+    
+    // ... render plot with adjusted parameters
+}
+```
+
+## Styling
+
+### Colors
+
+```rust
+use freya::plot::plotters::style::{
+    BLACK, WHITE, RED, GREEN, BLUE,
+    RGBColor, Color,
+};
+
+// Predefined colors
+let color = &BLUE;
+
+// Custom RGB colors
+let custom = RGBColor(120, 50, 255);
+
+// Color mixing
+let transparent_blue = BLUE.mix(0.5);
+
+// Filled styles
+let filled = BLUE.filled();
+```
+
+### Text and Labels
+
+```rust
+ChartBuilder::on(&backend)
+    .caption("My Chart", ("sans-serif", 30))
+    .x_label_area_size(40)
+    .y_label_area_size(50)
+    .build_cartesian_2d(0f64..10f64, 0f64..10f64)
+    .unwrap();
+```
+
+### Grid Configuration
+
+```rust
+chart
+    .configure_mesh()
+    .x_desc("X Axis")
+    .y_desc("Y Axis")
+    .x_labels(10)
+    .y_labels(10)
+    .light_line_style(&WHITE.mix(0.3))
+    .draw()
+    .unwrap();
+```
+
+## Using the Canvas
+
+Plots are rendered using Freya's `canvas` element:
+
+```rust
+canvas(RenderCallback::new(|ctx: &mut RenderContext| {
+    // Create backend
+    let backend = PlotSkiaBackend::new(
+        ctx.canvas,
+        ctx.font_collection,
+        ctx.layout_node.area.size.to_i32().to_tuple(),
+    );
+    
+    // Draw your plot
+    draw_chart(backend);
+}))
+.width(Size::px(800.))
+.height(Size::px(600.))
+```
+
+## Key Types
+
+### PlotSkiaBackend
+
+The Freya backend for Plotters:
+
+```rust
+let backend = PlotSkiaBackend::new(
+    canvas: &Canvas,
+    font_collection: &mut FontCollection,
+    size: (i32, i32),
+);
+```
+
+### ChartBuilder
+
+From Plotters, used to construct charts:
+
+```rust
+ChartBuilder::on(&backend)
+    .caption("Title", ("font", size))
+    .margin(pixels)
+    .x_label_area_size(pixels)
+    .y_label_area_size(pixels)
+    .build_cartesian_2d(x_range, y_range)
+```
+
+### RenderCallback
+
+Provides access to the canvas for drawing:
+
+```rust
+RenderCallback::new(|ctx: &mut RenderContext| {
+    // Render plot here
+})
+```
+
+## Complete Example: Interactive 3D Plot
+
+```rust
+use freya::{
+    plot::{
+        PlotSkiaBackend,
+        plotters::{
+            chart::ChartBuilder,
+            prelude::{IntoDrawingArea, IntoLinspace},
+            series::SurfaceSeries,
+            style::{BLACK, BLUE, WHITE},
+        },
+    },
+    prelude::*,
+};
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn on_render(ctx: &mut RenderContext, (cursor_x, cursor_y): (f64, f64)) {
+    let backend = PlotSkiaBackend::new(
+        ctx.canvas,
+        ctx.font_collection,
+        ctx.layout_node.area.size.to_i32().to_tuple(),
+    )
+    .into_drawing_area();
+
+    backend.fill(&WHITE).unwrap();
+
+    let pitch = std::f64::consts::PI * (0.5 - cursor_y / ctx.layout_node.area.height() as f64);
+    let yaw = std::f64::consts::PI * 2.0 * (cursor_x / ctx.layout_node.area.width() as f64 - 0.5);
+    let scale = 0.4 + 0.6 * (1.0 - cursor_y / ctx.layout_node.area.height() as f64);
+
+    let x_axis = (-3.0..3.0).step(0.1);
+    let z_axis = (-3.0..3.0).step(0.1);
+
+    let mut chart = ChartBuilder::on(&backend)
+        .caption("3D Plot - Move mouse to rotate", ("sans", 20))
+        .build_cartesian_3d(x_axis.clone(), -3.0..3.0, z_axis.clone())
+        .unwrap();
+
+    chart.with_projection(|mut pb| {
+        pb.pitch = pitch;
+        pb.yaw = yaw;
+        pb.scale = scale;
+        pb.into_matrix()
+    });
+
+    chart
+        .configure_axes()
+        .light_grid_style(BLACK.mix(0.15))
+        .max_light_lines(3)
+        .draw()
+        .unwrap();
+
+    chart
+        .draw_series(
+            SurfaceSeries::xoz(
+                (-30..30).map(|f| f as f64 / 10.0),
+                (-30..30).map(|f| f as f64 / 10.0),
+                |x, z| (x * x + z * z).cos(),
+            )
+            .style(BLUE.mix(0.2).filled()),
+        )
+        .unwrap();
+}
+
+fn app() -> impl IntoElement {
+    let mut cursor_position = use_state(CursorPoint::default);
+
+    let on_global_mouse_move = move |e: Event<MouseEventData>| {
+        if e.global_location.to_tuple() != (-1., -1.) {
+            cursor_position.set(e.global_location);
+            let platform = Platform::get();
+            platform.send(UserEvent::RequestRedraw);
+        }
+    };
+
+    canvas(RenderCallback::new(move |context| {
+        on_render(context, cursor_position().to_tuple());
+    }))
+    .expanded()
+    .on_global_mouse_move(on_global_mouse_move)
+}
+```
+
+## Notes
+
+- The plotting module provides a Plotters backend - you have full access to the Plotters API
+- Plots are rendered directly to the Skia canvas for high performance
+- Use `RenderCallback` to get access to the canvas for custom rendering
+- Call `platform.send(UserEvent::RequestRedraw)` to trigger redraws for animations
+- See the [Plotters documentation](https://docs.rs/plotters) for more chart types and options

@@ -1,0 +1,390 @@
+---
+title: Components
+description: Learn how to build reusable UI components in Freya
+---
+
+## Overview
+
+Components are the building blocks of Freya applications. They let you split your UI into independent, reusable pieces that can be composed together to create complex interfaces.
+
+## What is a Component?
+
+In Freya, a component is any data type (usually a struct) that implements the `Component` trait. Components are declarative - you don't instantiate them manually, you simply declare them and Freya takes care of rendering them.
+
+<Note>
+  All component structs must implement `PartialEq`. This is how Freya determines when a component needs to re-render.
+</Note>
+
+## Creating Components
+
+### Function Components
+
+The simplest way to create a component is with a function that returns `impl IntoElement`:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .background((255, 0, 0))
+        .width(Size::fill())
+        .height(Size::px(100.))
+        .child("Hello, World!")
+}
+```
+
+### Struct Components
+
+For components that need to accept data (props), use a struct that implements the `Component` trait:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Greeting {
+    name: String,
+}
+
+impl Component for Greeting {
+    fn render(&self) -> impl IntoElement {
+        label()
+            .text(format!("Hello, {}!", self.name))
+            .font_size(24.0)
+    }
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .child(Greeting { name: "Alice".to_string() })
+        .child(Greeting { name: "Bob".to_string() })
+}
+```
+
+<Tip>
+  Use `Cow<'static, str>` instead of `String` for text props to optimize memory usage:
+  
+  ```rust
+  use std::borrow::Cow;
+  
+  #[derive(PartialEq)]
+  struct TextLabel(Cow<'static, str>);
+  ```
+</Tip>
+
+## The App Component
+
+The root component of your application can be either:
+
+1. **A function** - Most convenient for simple apps:
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    "Hello, World!"
+}
+```
+
+2. **A struct implementing `App`** - Required when you need to pass data from `main`:
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(WindowConfig::new_app(MyApp { port: 3000 }))
+    )
+}
+
+struct MyApp {
+    port: u16,
+}
+
+impl App for MyApp {
+    fn render(&self) -> impl IntoElement {
+        label().text(format!("Server running on port {}", self.port))
+    }
+}
+```
+
+## Component Props
+
+Props are the data you pass to components. In Freya, props are simply the fields of your component struct:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Button {
+    label: String,
+    on_click: State<i32>, // Pass state as props
+}
+
+impl Component for Button {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .on_mouse_up(move |_| {
+                *self.on_click.write() += 1;
+            })
+            .child(self.label.clone())
+    }
+}
+```
+
+<Warning>
+  Props changes trigger re-renders, so only pass data that the component actually needs.
+</Warning>
+
+## Composing Components
+
+Components can render other components using the `.child()` method:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Header;
+
+impl Component for Header {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .height(Size::px(60.))
+            .background((50, 50, 50))
+            .child("My App")
+    }
+}
+
+#[derive(PartialEq)]
+struct Content;
+
+impl Component for Content {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .width(Size::fill())
+            .height(Size::fill())
+            .child("Content goes here")
+    }
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .child(Header {})
+        .child(Content {})
+}
+```
+
+## Component Lifecycle
+
+Components in Freya have a simple lifecycle:
+
+1. **Mount** - Component is created for the first time and its `render` method runs
+2. **Update** - Component re-renders when:
+   - Its props change (detected via `PartialEq`)
+   - A state value it reads from changes
+3. **Unmount** - Component is removed from the tree
+
+### Understanding Renders
+
+A "render" is when the component's `render` method runs:
+
+```rust
+use freya::prelude::*;
+
+#[derive(PartialEq)]
+struct Counter;
+
+impl Component for Counter {
+    // This function runs every time the component "renders"
+    fn render(&self) -> impl IntoElement {
+        let mut count = use_state(|| 0);
+
+        rect()
+            .on_mouse_up(move |_| {
+                // Mutating state causes a re-render
+                *count.write() += 1;
+            })
+            .child(format!("Count: {}", count.read()))
+    }
+}
+```
+
+<Note>
+  A component render doesn't necessarily mean the window redraws. Freya intelligently diffs the UI tree and only repaints when visual changes occur.
+</Note>
+
+## Key-Based Reconciliation
+
+When rendering lists of components, use the `.key()` method to help Freya identify which items changed:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let items = vec!["Apple", "Banana", "Cherry"];
+
+    rect()
+        .children(items.iter().enumerate().map(|(i, item)| {
+            rect()
+                .key(i)  // Helps Freya track this element
+                .child(item)
+        }))
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always derive PartialEq">
+    This is required for components and enables efficient diffing:
+    
+    ```rust
+    #[derive(PartialEq)]
+    struct MyComponent {
+        data: String,
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Keep components small and focused">
+    Each component should do one thing well. Break down complex UIs into smaller components:
+    
+    ```rust
+    // ❌ Bad - too much in one component
+    fn app() -> impl IntoElement {
+        rect()
+            .child(/* header */)
+            .child(/* sidebar */)
+            .child(/* main content */)
+            .child(/* footer */)
+    }
+    
+    // ✅ Good - separated concerns
+    fn app() -> impl IntoElement {
+        rect()
+            .child(Header {})
+            .child(Sidebar {})
+            .child(MainContent {})
+            .child(Footer {})
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Avoid expensive computations in render">
+    The render method can run frequently. Move expensive operations to effects or memoize them:
+    
+    ```rust
+    // ❌ Bad - computes on every render
+    fn render(&self) -> impl IntoElement {
+        let result = expensive_computation();
+        rect().child(result)
+    }
+    
+    // ✅ Good - memoized computation
+    fn render(&self) -> impl IntoElement {
+        let result = use_memo(|| expensive_computation());
+        rect().child(result.read())
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Use Cow for string props">
+    This avoids unnecessary allocations:
+    
+    ```rust
+    use std::borrow::Cow;
+    
+    #[derive(PartialEq)]
+    struct Label(Cow<'static, str>);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Complete Example
+
+Here's a complete example showing component composition and state management:
+
+```rust
+use freya::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(WindowConfig::new(app).with_size(500., 450.))
+    )
+}
+
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 4);
+
+    rect()
+        .child(Counter { count })
+        .child(Actions { count })
+}
+
+#[derive(PartialEq)]
+struct Counter {
+    count: State<i32>,
+}
+
+impl Component for Counter {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .width(Size::fill())
+            .height(Size::percent(50.))
+            .center()
+            .color((255, 255, 255))
+            .background((15, 163, 242))
+            .font_weight(FontWeight::BOLD)
+            .font_size(75.)
+            .child(self.count.read().to_string())
+    }
+}
+
+#[derive(PartialEq)]
+struct Actions {
+    count: State<i32>,
+}
+
+impl Component for Actions {
+    fn render(&self) -> impl IntoElement {
+        rect()
+            .horizontal()
+            .width(Size::fill())
+            .height(Size::percent(50.))
+            .center()
+            .spacing(8.0)
+            .child(
+                Button::new()
+                    .on_press(move |_| *self.count.write() += 1)
+                    .child("Increase"),
+            )
+            .child(
+                Button::new()
+                    .on_press(move |_| *self.count.write() -= 1)
+                    .child("Decrease"),
+            )
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="State Management" icon="database" href="/concepts/state-management">
+    Learn how to manage state in your components
+  </Card>
+  <Card title="Hooks" icon="link" href="/concepts/hooks">
+    Discover lifecycle hooks and reactive patterns
+  </Card>
+  <Card title="Elements" icon="cube" href="/concepts/elements">
+    Explore the core UI elements
+  </Card>
+  <Card title="Events" icon="hand-pointer" href="/concepts/events">
+    Handle user interactions
+  </Card>
+</CardGroup>

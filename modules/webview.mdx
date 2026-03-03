@@ -1,0 +1,310 @@
+---
+title: WebView
+description: Embed web content in your Freya applications using WRY
+---
+
+The WebView module provides integration for embedding web content in your Freya applications using the WRY library. WebViews can be embedded in your UI as regular elements and support modern web features.
+
+## Installation
+
+Enable the `webview` feature in your `Cargo.toml`:
+
+```toml
+[dependencies]
+freya = { version = "0.4", features = ["webview"] }
+```
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+use freya_webview::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_plugin(WebViewPlugin::new())
+            .with_window(WindowConfig::new(app)),
+    )
+}
+
+fn app() -> impl IntoElement {
+    WebView::new("https://example.com").expanded()
+}
+```
+
+## Important Setup
+
+You **must** register the `WebViewPlugin` when launching your app:
+
+```rust
+launch(
+    LaunchConfig::new()
+        .with_plugin(WebViewPlugin::new())
+        .with_window(WindowConfig::new(app)),
+)
+```
+
+## Features
+
+- **Modern Web Support**: Full HTML5, CSS3, and JavaScript support
+- **Multiple WebViews**: Create and manage multiple web views
+- **Lifecycle Control**: Control when WebViews are created and destroyed
+- **Layout Integration**: WebViews respect Freya's layout system
+- **Tab System**: Build browser-like interfaces with multiple tabs
+
+## Creating WebViews
+
+### Simple WebView
+
+```rust
+WebView::new("https://duckduckgo.com")
+    .expanded()
+```
+
+### WebView with ID
+
+Use IDs to manage WebView lifecycle:
+
+```rust
+let webview_id = use_state(|| WebViewId::new());
+
+WebView::new("https://example.com")
+    .id(*webview_id.read())
+    .expanded()
+```
+
+### Control Lifecycle
+
+By default, WebViews are closed when unmounted. To keep them alive:
+
+```rust
+WebView::new("https://example.com")
+    .id(webview_id)
+    .close_on_drop(false)
+    .expanded()
+```
+
+## Building a Tab System
+
+Create a browser-like interface with multiple tabs:
+
+```rust
+#[derive(Clone, PartialEq)]
+struct Tab {
+    id: WebViewId,
+    title: String,
+    url: String,
+}
+
+fn app() -> impl IntoElement {
+    use_init_root_theme(|| DARK_THEME);
+    
+    let mut tabs = use_state(|| {
+        vec![Tab {
+            id: WebViewId::new(),
+            title: "Tab 1".to_string(),
+            url: "https://duckduckgo.com".to_string(),
+        }]
+    });
+    
+    let mut active_tab = use_state(|| tabs.read()[0].id);
+
+    rect()
+        .expanded()
+        .child(
+            // Tab bar
+            rect()
+                .width(Size::fill())
+                .height(Size::px(45.))
+                .background((50, 50, 50))
+                .horizontal()
+                .children(tabs.read().iter().map(|tab| {
+                    let tab_id = tab.id;
+                    let is_active = *active_tab.read() == tab_id;
+                    
+                    Button::new()
+                        .on_press(move |_| {
+                            active_tab.set(tab_id);
+                        })
+                        .background(if is_active {
+                            (70, 70, 70)
+                        } else {
+                            (45, 45, 45)
+                        })
+                        .child(tab.title.clone())
+                        .into()
+                }))
+                .child(
+                    Button::new()
+                        .on_press(move |_| {
+                            let id = WebViewId::new();
+                            tabs.write().push(Tab {
+                                id,
+                                title: format!("Tab {:?}", id),
+                                url: "https://duckduckgo.com".to_string(),
+                            });
+                            active_tab.set(id);
+                        })
+                        .child("New Tab"),
+                ),
+        )
+        .child(
+            // WebView container
+            rect()
+                .expanded()
+                .children(tabs.read().iter().filter_map(|tab| {
+                    let is_active = *active_tab.read() == tab.id;
+                    
+                    if is_active {
+                        Some(
+                            WebView::new(&tab.url)
+                                .expanded()
+                                .id(tab.id)
+                                .close_on_drop(false)
+                                .into(),
+                        )
+                    } else {
+                        None
+                    }
+                })),
+        )
+}
+```
+
+## Multiple WebViews
+
+Display multiple WebViews simultaneously:
+
+```rust
+let webviews = use_state(|| {
+    vec![
+        Webview {
+            id: WebViewId::new(),
+            url: "https://example.com".to_string(),
+        },
+        Webview {
+            id: WebViewId::new(),
+            url: "https://duckduckgo.com".to_string(),
+        },
+    ]
+});
+
+rect()
+    .horizontal()
+    .expanded()
+    .children(webviews.read().iter().map(|webview| {
+        WebView::new(&webview.url)
+            .expanded()
+            .id(webview.id)
+            .into()
+    }))
+```
+
+## Resizable WebViews
+
+Combine WebViews with `ResizableContainer`:
+
+```rust
+ResizableContainer::new()
+    .direction(Direction::Horizontal)
+    .panels_iter(webviews.read().iter().enumerate().map(|(i, webview)| {
+        ResizablePanel::new(50.)
+            .key(&webview.id)
+            .order(i)
+            .child(WebView::new(&webview.url).expanded().id(webview.id))
+    }))
+```
+
+## Managing WebView Lifecycle
+
+### Close WebView Programmatically
+
+```rust
+Button::new()
+    .on_press(move |_| {
+        WebViewManager::close(webview_id);
+        tabs.write().retain(|t| t.id != webview_id);
+    })
+    .child("Close")
+```
+
+### Clean Up on Exit
+
+```rust
+use_drop(move || {
+    // Clean up WebViews when component unmounts
+    for tab in tabs.read().iter() {
+        WebViewManager::close(tab.id);
+    }
+});
+```
+
+## Key Types
+
+### WebView
+
+The main WebView component:
+
+```rust
+WebView::new(url: &str)
+    .id(id: WebViewId)           // Set WebView ID
+    .close_on_drop(bool)         // Auto-close when unmounted (default: true)
+    .expanded()                  // Make it fill available space
+```
+
+### WebViewId
+
+Unique identifier for WebView instances:
+
+```rust
+let id = WebViewId::new();
+```
+
+### WebViewPlugin
+
+Plugin that must be registered:
+
+```rust
+WebViewPlugin::new()
+```
+
+### WebViewManager
+
+Static methods for managing WebViews:
+
+- `WebViewManager::close(id)` - Close a WebView by ID
+
+### WebViewConfig
+
+Configuration options for WebViews (advanced usage).
+
+## Layout Integration
+
+WebViews respect all standard layout properties:
+
+```rust
+WebView::new("https://example.com")
+    .width(Size::px(800.))
+    .height(Size::px(600.))
+    .padding(10.)
+    .corner_radius(8.)
+```
+
+## Example: Complete Browser
+
+See the `feature_webview.rs` example in the repository for a complete tab-based browser implementation with:
+
+- Multiple tabs
+- Tab creation and closing
+- Active tab switching
+- WebView lifecycle management
+- Persistent WebViews when switching tabs
+
+## Notes
+
+- Always register `WebViewPlugin` before using WebViews
+- WebViews use the system's native web rendering engine (WebKit on macOS, WebView2 on Windows, WebKitGTK on Linux)
+- By default, WebViews are destroyed when unmounted unless `close_on_drop(false)` is set
+- Use unique `WebViewId`s to manage multiple WebViews
+- WebViews run in a separate thread and communicate asynchronously with the UI

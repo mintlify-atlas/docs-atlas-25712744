@@ -1,0 +1,399 @@
+---
+title: Animation System
+description: Powerful animation system with use_animation hook for creating smooth, interactive animations
+---
+
+Freya provides a powerful animation system through the `freya-animation` crate. Create smooth, declarative animations with support for numeric values, colors, sequential animations, and custom easing functions.
+
+## Basic Usage
+
+The `use_animation` hook is the primary interface for creating animations:
+
+```rust
+use freya::prelude::*;
+use freya::animation::*;
+
+fn app() -> impl IntoElement {
+    let mut animation = use_animation(|_| {
+        AnimNum::new(0., 100.).time(50)
+    });
+
+    let width = animation.get().value();
+
+    rect()
+        .width(Size::px(width))
+        .height(Size::fill())
+        .background(Color::BLUE)
+}
+```
+
+## Animation Types
+
+### AnimNum - Numeric Animations
+
+Animate numeric values like positions, sizes, or rotations:
+
+```rust
+let mut animation = use_animation(|_| {
+    AnimNum::new(50., 550.)
+        .function(Function::Elastic)
+        .ease(Ease::Out)
+        .time(1500)
+});
+
+let value = animation.read().value();
+
+rect()
+    .position(Position::new_absolute().left(value).top(50.))
+    .background(Color::BLUE)
+    .width(Size::px(100.))
+    .height(Size::px(100.))
+```
+
+### AnimColor - Color Animations
+
+Animate between colors smoothly:
+
+```rust
+let mut animation = use_animation(|_| {
+    AnimColor::new((246, 240, 240), (205, 86, 86)).time(400)
+});
+
+rect()
+    .background(&*animation.read())
+    .expanded()
+    .child(
+        Button::new()
+            .on_press(move |_| animation.start())
+            .child("Animate")
+    )
+```
+
+### AnimSequential - Sequential Animations
+
+Chain multiple animations to run one after another:
+
+```rust
+let mut animations = use_animation(|_| {
+    AnimSequential::new([
+        AnimNum::new(0., 360.)
+            .time(400)
+            .ease(Ease::InOut)
+            .function(Function::Expo),
+        AnimNum::new(0., 180.)
+            .time(1000)
+            .ease(Ease::Out)
+            .function(Function::Elastic),
+    ])
+});
+
+let sequential = animations.get();
+let rotate_a = sequential[0].value();
+let rotate_b = sequential[1].value();
+
+rect()
+    .horizontal()
+    .child(
+        rect()
+            .width(Size::px(100.))
+            .height(Size::px(100.))
+            .rotate(rotate_a)
+            .background((0, 119, 182))
+    )
+    .child(
+        rect()
+            .width(Size::px(100.))
+            .height(Size::px(100.))
+            .rotate(rotate_b)
+            .background((0, 119, 182))
+    )
+```
+
+## Easing Functions
+
+Control the animation timing with easing:
+
+- `Ease::In` - Slow start, fast end
+- `Ease::Out` - Fast start, slow end (default)
+- `Ease::InOut` - Slow start and end
+
+Combine with various functions:
+
+- `Function::Linear` - Constant speed (default)
+- `Function::Quad` - Quadratic acceleration
+- `Function::Cubic` - Cubic acceleration
+- `Function::Expo` - Exponential acceleration
+- `Function::Elastic` - Elastic effect
+- `Function::Bounce` - Bouncing effect
+- `Function::Back` - Overshooting effect
+- `Function::Circ` - Circular acceleration
+- `Function::Sine` - Sinusoidal acceleration
+- `Function::Quart` - Quartic acceleration
+
+```rust
+AnimNum::new(0., 100.)
+    .function(Function::Elastic)
+    .ease(Ease::Out)
+    .time(1500)
+```
+
+## Animation Control
+
+### Starting and Reversing
+
+```rust
+let mut animation = use_animation(|_| {
+    AnimNum::new(0., 100.).time(500)
+});
+
+// Start forward
+animation.start();
+
+// Run in reverse
+animation.reverse();
+
+// Reset to initial state
+animation.reset();
+
+// Jump to final state
+animation.finish();
+```
+
+### Animation Configuration
+
+Control animation behavior with `AnimConfiguration`:
+
+```rust
+let animation = use_animation(|conf| {
+    // Run animation on component creation
+    conf.on_creation(OnCreation::Run);
+    
+    // Reverse when animation finishes
+    conf.on_finish(OnFinish::reverse());
+    
+    AnimColor::new(Color::RED, Color::BLUE).time(400)
+});
+```
+
+#### OnCreation Options
+
+- `OnCreation::Nothing` - Do nothing (default)
+- `OnCreation::Run` - Start animation immediately
+- `OnCreation::Finish` - Set to end state immediately
+
+#### OnFinish Options
+
+- `OnFinish::Nothing` - Stop when complete (default)
+- `OnFinish::reverse()` - Reverse direction
+- `OnFinish::reverse_with_delay(duration)` - Reverse after delay
+- `OnFinish::restart()` - Restart from beginning
+- `OnFinish::restart_with_delay(duration)` - Restart after delay
+
+### Infinite Loop Animation
+
+```rust
+let animation = use_animation(|conf| {
+    conf.on_creation(OnCreation::Run);
+    conf.on_finish(OnFinish::reverse());
+    
+    AnimColor::new((246, 240, 240), (205, 86, 86)).time(400)
+});
+
+rect()
+    .background(&*animation.read())
+    .expanded()
+```
+
+## Dependencies and Transitions
+
+### With Dependencies
+
+React to state changes:
+
+```rust
+let value = use_state(|| 100.);
+
+let animation = use_animation(move |conf| {
+    conf.on_change(OnChange::Rerun);
+    AnimNum::new(0., value()).time(50)
+});
+```
+
+Or use `use_animation_with_dependencies` for non-reactive dependencies:
+
+```rust
+let other_value = 100.;
+
+let animation = use_animation_with_dependencies(&other_value, |conf, &other_value| {
+    conf.on_change(OnChange::Rerun);
+    AnimNum::new(0., other_value).time(50)
+});
+```
+
+#### OnChange Options
+
+- `OnChange::Reset` - Reset to initial state (default)
+- `OnChange::Finish` - Jump to end state
+- `OnChange::Rerun` - Restart animation
+- `OnChange::Nothing` - Do nothing
+
+### Transition Animations
+
+Automatically animate between state values:
+
+```rust
+let color = use_state(|| Color::RED);
+
+let animation = use_animation_transition(
+    color,
+    |from: Color, to| AnimColor::new(from, to).time(500)
+);
+
+rect()
+    .background(&*animation.read())
+    .child(
+        Button::new()
+            .on_press(move |_| color.set(Color::BLUE))
+            .child("Change Color")
+    )
+```
+
+## Multiple Animations
+
+Animate multiple values simultaneously using tuples:
+
+```rust
+let animation = use_animation(|conf| {
+    conf.on_creation(OnCreation::Run);
+    (
+        AnimNum::new(0., 100.).time(50),
+        AnimColor::new(Color::RED, Color::BLUE).time(50),
+    )
+});
+
+let (width, color) = animation.get().value();
+
+rect()
+    .width(Size::px(width))
+    .height(Size::fill())
+    .background(color)
+```
+
+You can animate up to 12 values in a single tuple.
+
+## Animation State
+
+Check animation status:
+
+```rust
+let animation = use_animation(|_| AnimNum::new(0., 100.).time(500));
+
+// Check if animation is running
+if animation.is_running().read() {
+    // Animation is in progress
+}
+
+// Check if animation has run at least once
+if animation.has_run_yet().read() {
+    // Animation has been triggered
+}
+
+// Get current direction
+let direction = animation.direction(); // AnimDirection::Forward or AnimDirection::Reverse
+```
+
+## Custom Animated Values
+
+Implement the `AnimatedValue` trait for custom animation types:
+
+```rust
+use freya::animation::*;
+
+#[derive(Clone, Default)]
+struct MyCustomAnim {
+    // Your fields
+}
+
+impl AnimatedValue for MyCustomAnim {
+    fn prepare(&mut self, direction: AnimDirection) {
+        // Initialize for animation start
+    }
+
+    fn is_finished(&self, index: u128, direction: AnimDirection) -> bool {
+        // Check if animation is complete
+        false
+    }
+
+    fn advance(&mut self, index: u128, direction: AnimDirection) {
+        // Update animation state
+    }
+
+    fn finish(&mut self, direction: AnimDirection) {
+        // Set to final state
+    }
+
+    fn into_reversed(self) -> Self {
+        // Return reversed version
+        self
+    }
+}
+```
+
+## Best Practices
+
+1. **Use appropriate durations** - 200-500ms for most UI animations
+2. **Choose the right easing** - `Ease::Out` works well for most cases
+3. **Prefer sequential over parallel** - Use `AnimSequential` for coordinated animations
+4. **Reset on unmount** - Animations stop automatically when component unmounts
+5. **Test performance** - Complex animations may impact frame rate
+
+## Complete Example
+
+Here's a full example with multiple animation features:
+
+```rust
+use freya::prelude::*;
+use freya::animation::*;
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    let mut toggle = use_state(|| false);
+    let mut animation = use_animation(|conf| {
+        conf.on_creation(OnCreation::Run);
+        (
+            AnimNum::new(0., 300.).time(800).function(Function::Elastic).ease(Ease::Out),
+            AnimColor::new(Color::BLUE, Color::RED).time(800),
+        )
+    });
+
+    let (position, color) = animation.get().value();
+
+    rect()
+        .expanded()
+        .child(
+            rect()
+                .position(Position::new_absolute().left(position).top(50.))
+                .background(color)
+                .width(Size::px(100.))
+                .height(Size::px(100.))
+        )
+        .child(
+            Button::new()
+                .on_press(move |_| {
+                    if toggle.toggled() {
+                        animation.start();
+                    } else {
+                        animation.reverse();
+                    }
+                })
+                .child("Toggle Animation")
+        )
+}
+```
+
+## API Reference
+
+See the [API documentation](https://docs.rs/freya-animation) for complete details on all animation types and methods.

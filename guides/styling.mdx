@@ -1,0 +1,349 @@
+---
+title: Styling Elements
+description: Learn how to style Freya elements with colors, borders, shadows, gradients, and more
+---
+
+Freya provides a powerful and flexible styling system that allows you to customize the appearance of your UI elements. This guide covers the essential styling properties and techniques.
+
+## Basic Styling Properties
+
+### Background Colors
+
+Set solid background colors using the `background()` method with RGB or RGBA tuples:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .width(Size::px(200.))
+        .height(Size::px(100.))
+        .background((255, 0, 0))  // Red
+}
+```
+
+You can also use RGBA for transparency:
+
+```rust
+rect()
+    .background((255, 0, 0, 128))  // Semi-transparent red
+```
+
+### Borders
+
+Add borders to elements with customizable width, color, and alignment:
+
+```rust
+rect()
+    .width(Size::px(200.))
+    .height(Size::px(100.))
+    .border((2., (0, 0, 0)))  // 2px black border
+```
+
+For more control, you can specify individual border sides:
+
+```rust
+rect()
+    .border_top((1., (255, 0, 0)))      // Red top border
+    .border_bottom((2., (0, 255, 0)))   // Green bottom border
+    .border_left((1., (0, 0, 255)))     // Blue left border
+    .border_right((1., (255, 255, 0)))  // Yellow right border
+```
+
+### Corner Radius
+
+Create rounded corners using `corner_radius()`:
+
+```rust
+rect()
+    .width(Size::px(200.))
+    .height(Size::px(100.))
+    .background((100, 150, 255))
+    .corner_radius(12.0)  // Rounded corners
+```
+
+For different radii on each corner:
+
+```rust
+rect()
+    .corner_radius_top_left(20.0)
+    .corner_radius_top_right(10.0)
+    .corner_radius_bottom_left(5.0)
+    .corner_radius_bottom_right(15.0)
+```
+
+### Padding and Margin
+
+Control spacing inside (padding) and outside (margin) elements:
+
+```rust
+rect()
+    .padding(16.)           // All sides
+    .margin(8.)            // All sides
+    .child("Content")
+```
+
+Or specify individual sides:
+
+```rust
+rect()
+    .padding_left(10.)
+    .padding_right(10.)
+    .padding_top(5.)
+    .padding_bottom(5.)
+```
+
+## Gradients
+
+Freya supports three types of gradients: linear, radial, and conic.
+
+### Linear Gradients
+
+Create smooth color transitions in a linear direction:
+
+```rust
+rect()
+    .width(Size::px(220.))
+    .height(Size::px(220.))
+    .background_linear_gradient(
+        LinearGradient::new()
+            .angle(250.)
+            .stop(((255, 100, 50), 15.))
+            .stop(((255, 0, 0), 50.))
+            .stop(((255, 192, 203), 80.))
+    )
+```
+
+### Radial Gradients
+
+Create gradients that radiate from a center point:
+
+```rust
+rect()
+    .width(Size::px(220.))
+    .height(Size::px(220.))
+    .background_radial_gradient(
+        RadialGradient::new()
+            .stop(((255, 100, 50), 15.))
+            .stop(((255, 0, 0), 50.))
+            .stop(((255, 192, 203), 80.))
+    )
+```
+
+### Conic Gradients
+
+Create gradients that rotate around a center point:
+
+```rust
+rect()
+    .width(Size::px(220.))
+    .height(Size::px(220.))
+    .background_conic_gradient(
+        ConicGradient::new()
+            .angle(250.)
+            .stop(((255, 100, 50), 15.))
+            .stop(((255, 0, 0), 50.))
+            .stop(((255, 192, 203), 80.))
+    )
+```
+
+## Shadows
+
+Add depth to your UI with box shadows:
+
+```rust
+rect()
+    .width(Size::px(80.))
+    .height(Size::px(80.))
+    .shadow(
+        Shadow::new()
+            .x(24.)
+            .y(24.)
+            .blur(8.)
+            .color((0, 0, 0, 0.3))
+    )
+```
+
+### Multiple Shadows
+
+You can apply multiple shadows to a single element:
+
+```rust
+rect()
+    .width(Size::px(80.))
+    .height(Size::px(80.))
+    .shadow(
+        Shadow::new()
+            .x(24.)
+            .y(24.)
+            .blur(8.)
+            .color((0, 0, 0, 0.3))
+    )
+    .shadow(
+        Shadow::new()
+            .x(-24.)
+            .y(-24.)
+            .blur(8.)
+            .color((0, 255, 0, 0.3))
+    )
+```
+
+### Inset Shadows
+
+Create inner shadows for depth effects:
+
+```rust
+rect()
+    .width(Size::px(80.))
+    .height(Size::px(80.))
+    .shadow(
+        Shadow::new()
+            .blur(8.)
+            .color((255, 0, 0))
+            .inset()
+    )
+```
+
+## Blur Effects
+
+Apply blur effects to create glassmorphism or focus effects:
+
+```rust
+rect()
+    .width(Size::px(100.))
+    .height(Size::px(100.))
+    .background((255, 255, 255, 0.30))
+    .corner_radius(12.0)
+    .blur(10.0)  // Blur with 10px radius
+    .child("Blurred background")
+```
+
+Blur is particularly effective when combined with semi-transparent backgrounds:
+
+```rust
+rect()
+    .background((255, 255, 255, 0.20))  // Semi-transparent white
+    .blur(20.0)                          // Heavy blur
+    .corner_radius(16.0)
+    .padding(20.)
+    .child("Glass effect")
+```
+
+## Text Styling
+
+Style text content with font properties:
+
+```rust
+rect()
+    .color((255, 0, 0))       // Text color
+    .font_size(24)            // Font size in pixels
+    .font_family("Roboto")    // Font family
+    .font_weight(FontWeight::Bold)
+    .child("Styled Text")
+```
+
+## Opacity
+
+Control element transparency:
+
+```rust
+rect()
+    .opacity(0.5)  // 50% opacity
+    .background((255, 0, 0))
+    .width(Size::px(100.))
+    .height(Size::px(100.))
+```
+
+## Best Practices
+
+### 1. Use Theme Colors
+
+When possible, use theme-aware colors for consistency:
+
+```rust
+rect()
+    .theme_background()  // Uses theme background color
+    .theme_color()       // Uses theme text color
+```
+
+### 2. Consistent Spacing
+
+Maintain consistent spacing throughout your app:
+
+```rust
+const SPACING_SM: f32 = 8.0;
+const SPACING_MD: f32 = 16.0;
+const SPACING_LG: f32 = 24.0;
+
+rect()
+    .padding(SPACING_MD)
+    .spacing(SPACING_SM)
+```
+
+### 3. Performance Considerations
+
+- Heavy blur effects can impact performance on lower-end devices
+- Multiple shadows increase rendering complexity
+- Use solid colors instead of gradients when possible for better performance
+
+### 4. Accessibility
+
+Ensure sufficient color contrast for text readability:
+
+```rust
+// Good contrast
+rect()
+    .background((255, 255, 255))  // White background
+    .color((0, 0, 0))              // Black text
+
+// Avoid low contrast
+// rect().background((200, 200, 200)).color((150, 150, 150))
+```
+
+## Common Patterns
+
+### Card Style
+
+```rust
+rect()
+    .background((255, 255, 255))
+    .corner_radius(12.0)
+    .shadow(
+        Shadow::new()
+            .y(2.)
+            .blur(8.)
+            .color((0, 0, 0, 0.1))
+    )
+    .padding(16.)
+    .child("Card content")
+```
+
+### Button Style
+
+```rust
+rect()
+    .background((59, 130, 246))  // Blue
+    .corner_radius(8.0)
+    .padding_horizontal(16.)
+    .padding_vertical(8.)
+    .color((255, 255, 255))
+    .child("Click me")
+```
+
+### Glassmorphism
+
+```rust
+rect()
+    .background((255, 255, 255, 0.15))
+    .blur(10.0)
+    .corner_radius(16.0)
+    .border((1., (255, 255, 255, 0.3)))
+    .padding(20.)
+    .child("Glass panel")
+```
+
+## Next Steps
+
+- Learn about [Theming](/guides/theming) for consistent styling across your app
+- Explore [Layouts](/guides/layouts) to position and size your styled elements
+- Check the [Components API](/components/overview) for pre-styled components

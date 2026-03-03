@@ -1,0 +1,226 @@
+---
+title: Color
+description: Color type and usage for styling elements in Freya.
+---
+
+## Overview
+
+The `Color` type represents colors in Freya. You can create colors using RGB, ARGB, HSV, hex strings, or tuples.
+
+## Creating Colors
+
+### From RGB
+
+Create a color with RGB values (0-255) and full opacity:
+
+```rust
+use freya::prelude::*;
+
+let color = Color::from_rgb(255, 100, 50);
+```
+
+### From ARGB
+
+Create a color with alpha (opacity) and RGB values:
+
+```rust
+let color = Color::from_argb(200, 255, 100, 50); // Alpha: 0-255
+```
+
+### From Alpha (f32) and RGB
+
+Create a color with alpha as a float (0.0-1.0):
+
+```rust
+let color = Color::from_af32rgb(0.8, 255, 100, 50); // Alpha: 0.0-1.0
+```
+
+### From Hex String
+
+Create a color from a hex string:
+
+```rust
+// 6-digit hex (RRGGBB)
+let color = Color::from_hex("#FF6432").unwrap();
+let color = Color::from_hex("0xFF6432").unwrap();
+let color = Color::from_hex("FF6432").unwrap();
+
+// 8-digit hex (RRGGBBAA)
+let color = Color::from_hex("#FF6432C8").unwrap();
+```
+
+### From HSV
+
+Create a color from HSV (Hue, Saturation, Value):
+
+```rust
+let color = Color::from_hsv(
+    180.0, // Hue: 0.0-360.0
+    0.5,   // Saturation: 0.0-1.0
+    0.8    // Value: 0.0-1.0
+);
+```
+
+### From Tuples
+
+Colors can be created directly from tuples:
+
+```rust
+// RGB tuple (r, g, b)
+let color: Color = (255, 100, 50).into();
+
+// RGBA tuple with f32 alpha (r, g, b, a)
+let color: Color = (255, 100, 50, 0.8).into();
+
+// RGBA tuple with u8 alpha (r, g, b, a)
+let color: Color = (255, 100, 50, 200).into();
+```
+
+### From u32
+
+Create a color from a 32-bit integer:
+
+```rust
+let color = Color::new(0xFFFF6432);
+let color: Color = 0xFFFF6432.into();
+```
+
+## Predefined Colors
+
+Freya provides common predefined colors:
+
+```rust
+Color::TRANSPARENT
+Color::BLACK
+Color::WHITE
+Color::RED
+Color::GREEN
+Color::BLUE
+Color::YELLOW
+Color::CYAN
+Color::MAGENTA
+Color::GRAY          // or GREY
+Color::DARK_GRAY     // or DARK_GREY
+Color::LIGHT_GRAY    // or LIGHT_GREY
+```
+
+## Color Manipulation
+
+### Get Color Components
+
+```rust
+let color = Color::from_rgba(255, 100, 50, 200);
+
+let r = color.r(); // Returns: u8
+let g = color.g(); // Returns: u8
+let b = color.b(); // Returns: u8
+let a = color.a(); // Returns: u8
+```
+
+### Modify Alpha
+
+```rust
+let color = Color::from_rgb(255, 100, 50);
+let semi_transparent = color.with_a(128);
+```
+
+### Convert to/from HSV
+
+```rust
+let color = Color::from_rgb(255, 100, 50);
+
+// Convert to HSV
+let hsv = color.to_hsv();
+
+// Modify HSV components
+let hue_shifted = color.with_h(180.0);
+let more_saturated = color.with_s(0.8);
+let brighter = color.with_v(0.9);
+```
+
+### Color Multiplication
+
+Multiply color components by a scalar:
+
+```rust
+let color = Color::from_rgb(255, 100, 50);
+let darker = color * 0.5;
+
+// Conditional multiplication
+let result = color.mul_if(true, 0.8);
+```
+
+## String Representations
+
+### Hex String
+
+```rust
+let color = Color::from_rgb(255, 100, 50);
+let hex = color.to_hex_string(); // "#FF6432FF"
+```
+
+### RGB String
+
+```rust
+let color = Color::from_argb(200, 255, 100, 50);
+let rgb = color.to_rgb_string(); // "rgb(255, 100, 50, 2.0)"
+let pretty = color.pretty();     // Same as to_rgb_string()
+```
+
+## Fill Type
+
+The `Fill` enum extends colors with gradient support:
+
+```rust
+use freya::prelude::*;
+
+// Solid color
+let fill = Fill::Color(Color::from_rgb(255, 100, 50));
+
+// Or use From trait
+let fill: Fill = Color::from_rgb(255, 100, 50).into();
+
+// Linear gradient
+let fill = Fill::LinearGradient(Box::new(
+    LinearGradient::new()
+        .angle(45.0)
+        .stop((Color::RED, 0.0))
+        .stop((Color::BLUE, 100.0))
+));
+
+// Radial gradient
+let fill = Fill::RadialGradient(Box::new(
+    RadialGradient::new()
+        .stop((Color::RED, 0.0))
+        .stop((Color::BLUE, 100.0))
+));
+
+// Conic gradient
+let fill = Fill::ConicGradient(Box::new(
+    ConicGradient::new()
+        .angle(45.0)
+        .stop((Color::RED, 0.0))
+        .stop((Color::BLUE, 100.0))
+));
+```
+
+## Usage in Components
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .background(Color::from_rgb(255, 100, 50))
+        .child(
+            text("Hello")
+                .color((200, 100, 50, 0.8))
+        )
+}
+```
+
+## See Also
+
+- [Gradients Guide](/guides/styling)
+- [Borders](/api/styling/borders)
+- [Shadows](/api/styling/shadows)

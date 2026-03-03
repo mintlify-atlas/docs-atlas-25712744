@@ -1,80 +1,491 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Build your first Freya application in minutes
 ---
 
-## Get started in three steps
+# Quick Start
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This tutorial will guide you through creating a simple counter application with Freya. You'll learn the fundamentals of components, state management, and event handling.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Make sure you've completed the [installation guide](/installation) before starting this tutorial.
 </Note>
+
+## What We're Building
+
+We'll create an interactive counter app with:
+- A display showing the current count
+- Buttons to increase and decrease the count
+- Styled UI elements with colors, shadows, and spacing
+
+<img
+  src="https://github.com/user-attachments/assets/6f13c144-9557-4518-9b2e-93706568f355"
+  alt="Counter App Screenshot"
+  style={{ maxWidth: '400px', margin: '20px auto', display: 'block' }}
+/>
+
+## Step 1: Create a New Project
+
+<Steps>
+  <Step title="Create the project">
+    ```bash
+    cargo new counter-app
+    cd counter-app
+    ```
+  </Step>
+
+  <Step title="Add Freya dependency">
+    Edit `Cargo.toml` and add Freya:
+
+    ```toml
+    [package]
+    name = "counter-app"
+    version = "0.1.0"
+    edition = "2021"
+
+    [dependencies]
+    freya = "0.4.0-rc.11"
+    ```
+  </Step>
+</Steps>
+
+## Step 2: Set Up the Basic App
+
+Replace the contents of `src/main.rs` with this code:
+
+```rust
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
+
+use freya::prelude::*;
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    rect()
+        .center()
+        .expanded()
+        .child("Hello, Freya!")
+}
+```
+
+<Accordion title="Understanding the Code">
+  - `#![cfg_attr(...)]` - On Windows release builds, prevents console window from appearing
+  - `use freya::prelude::*` - Imports all common Freya types and functions
+  - `launch()` - Starts the Freya runtime with configuration
+  - `WindowConfig::new(app)` - Creates a window with our `app` function as the root component
+  - `rect()` - Creates a rectangular container element
+  - `.expanded()` - Makes the rect fill available space
+  - `.center()` - Centers child content both horizontally and vertically
+  - `.child()` - Adds a child element (in this case, text)
+</Accordion>
+
+Run your app to verify it works:
+
+```bash
+cargo run
+```
+
+You should see a window with "Hello, Freya!" centered on the screen.
+
+## Step 3: Add State
+
+Now let's add state to track the counter value. Freya uses **hooks** for state management. The `use_state` hook creates reactive state that automatically triggers re-renders when changed.
+
+Update your `app` function:
+
+```rust
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 4);
+
+    rect()
+        .center()
+        .expanded()
+        .child(count.read().to_string())
+}
+```
+
+<Accordion title="Understanding State">
+  - `use_state(|| 4)` - Creates state initialized to `4`. The closure is only called once.
+  - `count.read()` - Reads the current value. This subscribes the component to updates.
+  - `count.write()` - Gets a mutable reference to update the value (we'll use this next)
+  - When state changes, Freya automatically re-renders the component
+</Accordion>
+
+Run the app - you should now see "4" displayed.
+
+## Step 4: Create the Counter Display
+
+Let's make the counter display more visually appealing with styling:
+
+```rust
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 4);
+
+    let counter = rect()
+        .width(Size::fill())
+        .height(Size::percent(50.))
+        .center()
+        .color((255, 255, 255))
+        .background((15, 163, 242))
+        .font_weight(FontWeight::BOLD)
+        .font_size(75.)
+        .shadow((0., 4., 20., 4., (0, 0, 0, 80)))
+        .child(count.read().to_string());
+
+    rect().child(counter)
+}
+```
+
+<Accordion title="Understanding Styling">
+  - `width(Size::fill())` - Fill available width
+  - `height(Size::percent(50.))` - Take up 50% of parent height
+  - `color((255, 255, 255))` - White text color (RGB)
+  - `background((15, 163, 242))` - Blue background
+  - `font_weight(FontWeight::BOLD)` - Bold text
+  - `font_size(75.)` - Large text size
+  - `shadow((x, y, blur, spread, color))` - Drop shadow effect
+</Accordion>
+
+## Step 5: Add Interactive Buttons
+
+Now let's add buttons to modify the counter:
+
+```rust
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 4);
+
+    let counter = rect()
+        .width(Size::fill())
+        .height(Size::percent(50.))
+        .center()
+        .color((255, 255, 255))
+        .background((15, 163, 242))
+        .font_weight(FontWeight::BOLD)
+        .font_size(75.)
+        .shadow((0., 4., 20., 4., (0, 0, 0, 80)))
+        .child(count.read().to_string());
+
+    let actions = rect()
+        .horizontal()
+        .width(Size::fill())
+        .height(Size::percent(50.))
+        .center()
+        .spacing(8.0)
+        .child(
+            Button::new()
+                .on_press(move |_| {
+                    *count.write() += 1;
+                })
+                .child("Increase"),
+        )
+        .child(
+            Button::new()
+                .on_press(move |_| {
+                    *count.write() -= 1;
+                })
+                .child("Decrease"),
+        );
+
+    rect().child(counter).child(actions)
+}
+```
+
+<Accordion title="Understanding Events and Buttons">
+  - `.horizontal()` - Arranges children in a horizontal row
+  - `.spacing(8.0)` - Adds 8 pixels of space between children
+  - `Button::new()` - Creates a button component
+  - `.on_press(move |_| { ... })` - Event handler called when button is clicked
+  - `*count.write() += 1` - Gets mutable access to state and modifies it
+  - The `move` keyword captures `count` so it can be used in the closure
+  - Both buttons can use the same `count` state because `State` implements `Copy`
+</Accordion>
+
+## Step 6: Final Touches
+
+Let's add window configuration for a better initial size:
+
+```rust
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(
+                WindowConfig::new(app)
+                    .with_size(500., 450.)
+            )
+    )
+}
+```
+
+Here's the complete final code:
+
+```rust
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
+
+use freya::prelude::*;
+
+fn main() {
+    launch(
+        LaunchConfig::new()
+            .with_window(
+                WindowConfig::new(app)
+                    .with_size(500., 450.)
+            )
+    )
+}
+
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 4);
+
+    let counter = rect()
+        .width(Size::fill())
+        .height(Size::percent(50.))
+        .center()
+        .color((255, 255, 255))
+        .background((15, 163, 242))
+        .font_weight(FontWeight::BOLD)
+        .font_size(75.)
+        .shadow((0., 4., 20., 4., (0, 0, 0, 80)))
+        .child(count.read().to_string());
+
+    let actions = rect()
+        .horizontal()
+        .width(Size::fill())
+        .height(Size::percent(50.))
+        .center()
+        .spacing(8.0)
+        .child(
+            Button::new()
+                .on_press(move |_| {
+                    *count.write() += 1;
+                })
+                .child("Increase"),
+        )
+        .child(
+            Button::new()
+                .on_press(move |_| {
+                    *count.write() -= 1;
+                })
+                .child("Decrease"),
+        );
+
+    rect().child(counter).child(actions)
+}
+```
+
+## Run Your App
+
+```bash
+cargo run
+```
+
+Congratulations! You've built your first Freya application. Click the buttons to increment and decrement the counter.
+
+## Key Concepts Learned
+
+<CardGroup cols={2}>
+  <Card title="Components" icon="cube">
+    Functions that return UI elements. The `app` function is your root component.
+  </Card>
+  <Card title="State Management" icon="database">
+    `use_state` creates reactive state that triggers re-renders on changes.
+  </Card>
+  <Card title="Layout" icon="border-all">
+    Use `rect()` with properties like `.horizontal()`, `.center()`, and sizing to arrange UI.
+  </Card>
+  <Card title="Event Handling" icon="hand-pointer">
+    Use `.on_press()`, `.on_mouse_up()`, etc. to respond to user interactions.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+### Enhance Your Counter
+
+Try these modifications to deepen your understanding:
+
+<AccordionGroup>
+  <Accordion title="Add a Reset Button">
+    ```rust
+    .child(
+        Button::new()
+            .on_press(move |_| {
+                *count.write() = 0;
+            })
+            .child("Reset"),
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Prevent Negative Numbers">
+    ```rust
+    Button::new()
+        .on_press(move |_| {
+            let current = *count.read();
+            if current > 0 {
+                *count.write() -= 1;
+            }
+        })
+        .child("Decrease")
+    ```
+  </Accordion>
+
+  <Accordion title="Change Colors Based on Value">
+    ```rust
+    let bg_color = if *count.read() > 0 {
+        (15, 163, 242)
+    } else {
+        (242, 15, 15)
+    };
+
+    rect()
+        // ... other properties
+        .background(bg_color)
+    ```
+  </Accordion>
+
+  <Accordion title="Create a Reusable Component">
+    ```rust
+    #[derive(PartialEq)]
+    struct CounterButton {
+        label: &'static str,
+        on_click: fn(&mut i32),
+    }
+
+    impl Component for CounterButton {
+        fn render(&self) -> impl IntoElement {
+            let mut count = use_consume::<State<i32>>();
+            
+            Button::new()
+                .on_press(move |_| (self.on_click)(&mut count.write()))
+                .child(self.label)
+        }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Explore More
+
+<CardGroup cols={2}>
+  <Card
+    title="Component Examples"
+    icon="shapes"
+    href="https://github.com/marc2332/freya/tree/main/examples"
+  >
+    Browse examples of all built-in components like switches, sliders, and dropdowns
+  </Card>
+  <Card
+    title="Animation Guide"
+    icon="wand-magic-sparkles"
+    href="/animations"
+  >
+    Learn how to add smooth animations to your UI
+  </Card>
+  <Card
+    title="State Management"
+    icon="database"
+    href="/state-management"
+  >
+    Deep dive into local and global state patterns
+  </Card>
+  <Card
+    title="API Reference"
+    icon="book"
+    href="https://docs.rs/freya/"
+  >
+    Complete documentation of all Freya APIs
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Using Multiple State Values
+
+```rust
+fn app() -> impl IntoElement {
+    let mut count = use_state(|| 0);
+    let mut step = use_state(|| 1);
+
+    rect()
+        .child(format!("Count: {}", count.read()))
+        .child(
+            Button::new()
+                .on_press(move |_| {
+                    *count.write() += *step.read();
+                })
+                .child("Add")
+        )
+}
+```
+
+### Conditional Rendering
+
+```rust
+fn app() -> impl IntoElement {
+    let mut show = use_state(|| true);
+
+    rect()
+        .child(
+            Button::new()
+                .on_press(move |_| *show.write() = !*show.read())
+                .child("Toggle")
+        )
+        .child(
+            if *show.read() {
+                "Visible!".into_element()
+            } else {
+                "Hidden!".into_element()
+            }
+        )
+}
+```
+
+### Lists and Iteration
+
+```rust
+fn app() -> impl IntoElement {
+    let items = vec!["Apple", "Banana", "Cherry"];
+
+    rect()
+        .children(
+            items.iter().map(|item| {
+                label().text(*item).into()
+            })
+        )
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Component not re-rendering">
+    Make sure you're calling `.read()` on your state. Components only re-render when they subscribe to state by reading it.
+  </Accordion>
+
+  <Accordion title="Cannot move out of captured variable">
+    Add `move` keyword to your closure and ensure the state type is `Copy`. Freya's `State` type is `Copy` by default.
+  </Accordion>
+
+  <Accordion title="Window doesn't appear on Windows">
+    Make sure you have the `#![cfg_attr(...)]` attribute at the top of your `main.rs` file.
+  </Accordion>
+</AccordionGroup>
+
+## Get Help
+
+If you get stuck:
+
+- Check the [examples directory](https://github.com/marc2332/freya/tree/main/examples) for working code
+- Ask in the [Discord community](https://discord.gg/sYejxCdewG)
+- Review the [API docs](https://docs.rs/freya/) for detailed information
+- [Open an issue](https://github.com/marc2332/freya/issues) if you find a bug
+
+Happy building with Freya! 🦀

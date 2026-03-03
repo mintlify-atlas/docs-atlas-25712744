@@ -1,0 +1,374 @@
+---
+title: Icons
+description: Icon library with Lucide icons for Freya applications
+---
+
+The Icons module provides access to a comprehensive icon library for your Freya applications. Currently supports the Lucide icon set with thousands of high-quality SVG icons.
+
+## Installation
+
+Enable the `icons` feature in your `Cargo.toml`:
+
+```toml
+[dependencies]
+freya = { version = "0.4", features = ["icons"] }
+```
+
+## Basic Usage
+
+```rust
+use freya::{
+    icons,
+    prelude::*,
+};
+
+fn app() -> impl IntoElement {
+    svg(icons::lucide::heart())
+        .color((255, 100, 100))
+        .width(Size::px(48.))
+        .height(Size::px(48.))
+}
+```
+
+## Icon Libraries
+
+### Lucide Icons
+
+The `lucide` feature provides access to the complete Lucide icon set - a beautiful, consistent icon library with over 1,000 icons.
+
+```rust
+use freya::icons;
+
+// Common icons
+svg(icons::lucide::home())
+svg(icons::lucide::user())
+svg(icons::lucide::settings())
+svg(icons::lucide::search())
+svg(icons::lucide::heart())
+svg(icons::lucide::star())
+svg(icons::lucide::check())
+svg(icons::lucide::x())
+svg(icons::lucide::menu())
+svg(icons::lucide::chevron_down())
+svg(icons::lucide::arrow_left())
+svg(icons::lucide::plus())
+svg(icons::lucide::minus())
+```
+
+## Styling Icons
+
+### Size
+
+```rust
+svg(icons::lucide::heart())
+    .width(Size::px(24.))    // Common sizes: 16, 20, 24, 32, 48
+    .height(Size::px(24.))
+```
+
+### Color
+
+```rust
+svg(icons::lucide::heart())
+    .color((255, 100, 100))           // RGB tuple
+    .color(Color::from_rgb(255, 0, 0)) // Color struct
+    .color(Color::WHITE)              // Predefined colors
+```
+
+### Opacity
+
+```rust
+svg(icons::lucide::heart())
+    .color(Color::from_rgb(255, 100, 100).with_a(128)) // 50% opacity
+```
+
+## Common Use Cases
+
+### In Buttons
+
+```rust
+Button::new()
+    .on_press(|_| println!("Clicked"))
+    .child(
+        rect()
+            .horizontal()
+            .spacing(8.)
+            .cross_align(Alignment::Center)
+            .child(
+                svg(icons::lucide::heart())
+                    .width(Size::px(20.))
+                    .height(Size::px(20.))
+                    .color((255, 100, 100)),
+            )
+            .child("Like"),
+    )
+```
+
+### Icon Buttons
+
+```rust
+Button::new()
+    .on_press(|_| println!("Settings"))
+    .rounded_full()
+    .width(Size::px(40.))
+    .height(Size::px(40.))
+    .child(
+        svg(icons::lucide::settings())
+            .width(Size::px(20.))
+            .height(Size::px(20.))
+            .color((200, 200, 200)),
+    )
+```
+
+### Navigation Icons
+
+```rust
+rect()
+    .vertical()
+    .spacing(8.)
+    .child(nav_item(icons::lucide::home(), "Home"))
+    .child(nav_item(icons::lucide::search(), "Search"))
+    .child(nav_item(icons::lucide::user(), "Profile"))
+    .child(nav_item(icons::lucide::settings(), "Settings"))
+
+fn nav_item(icon: bytes::Bytes, text: &str) -> impl IntoElement {
+    rect()
+        .horizontal()
+        .spacing(12.)
+        .padding(12.)
+        .cross_align(Alignment::Center)
+        .child(
+            svg(icon)
+                .width(Size::px(20.))
+                .height(Size::px(20.))
+                .color((150, 150, 150)),
+        )
+        .child(label().text(text))
+}
+```
+
+### Status Indicators
+
+```rust
+fn status_badge(success: bool) -> impl IntoElement {
+    rect()
+        .horizontal()
+        .spacing(8.)
+        .padding(8.)
+        .corner_radius(4.)
+        .background(if success { (200, 255, 200) } else { (255, 200, 200) })
+        .child(
+            svg(if success {
+                icons::lucide::check_circle()
+            } else {
+                icons::lucide::x_circle()
+            })
+            .width(Size::px(16.))
+            .height(Size::px(16.))
+            .color(if success { (0, 150, 0) } else { (150, 0, 0) }),
+        )
+        .child(if success { "Success" } else { "Error" })
+}
+```
+
+### Toolbar
+
+```rust
+rect()
+    .horizontal()
+    .spacing(4.)
+    .padding(8.)
+    .background((50, 50, 50))
+    .child(toolbar_button(icons::lucide::bold()))
+    .child(toolbar_button(icons::lucide::italic()))
+    .child(toolbar_button(icons::lucide::underline()))
+    .child(toolbar_button(icons::lucide::link()))
+    .child(toolbar_button(icons::lucide::image()))
+
+fn toolbar_button(icon: bytes::Bytes) -> impl IntoElement {
+    Button::new()
+        .flat()
+        .compact()
+        .width(Size::px(32.))
+        .height(Size::px(32.))
+        .child(
+            svg(icon)
+                .width(Size::px(18.))
+                .height(Size::px(18.))
+                .color((200, 200, 200)),
+        )
+}
+```
+
+## Popular Icons
+
+Here are some commonly used icons from the Lucide set:
+
+### Actions
+```rust
+icons::lucide::plus()          // Add
+icons::lucide::minus()         // Remove
+icons::lucide::x()             // Close
+icons::lucide::check()         // Confirm
+icons::lucide::trash_2()       // Delete
+icons::lucide::edit()          // Edit
+icons::lucide::copy()          // Copy
+icons::lucide::download()      // Download
+icons::lucide::upload()        // Upload
+icons::lucide::save()          // Save
+icons::lucide::refresh_cw()    // Refresh
+```
+
+### Navigation
+```rust
+icons::lucide::home()          // Home
+icons::lucide::arrow_left()    // Back
+icons::lucide::arrow_right()   // Forward
+icons::lucide::chevron_down()  // Dropdown
+icons::lucide::chevron_up()    // Collapse
+icons::lucide::menu()          // Menu
+icons::lucide::more_vertical() // More options
+icons::lucide::external_link() // External link
+```
+
+### Content
+```rust
+icons::lucide::file()          // File
+icons::lucide::folder()        // Folder
+icons::lucide::image()         // Image
+icons::lucide::video()         // Video
+icons::lucide::music()         // Audio
+icons::lucide::mail()          // Email
+icons::lucide::message_circle() // Chat
+icons::lucide::bell()          // Notifications
+```
+
+### UI Elements
+```rust
+icons::lucide::search()        // Search
+icons::lucide::settings()      // Settings
+icons::lucide::user()          // User
+icons::lucide::lock()          // Security
+icons::lucide::eye()           // Show
+icons::lucide::eye_off()       // Hide
+icons::lucide::heart()         // Like/Favorite
+icons::lucide::star()          // Rating
+icons::lucide::info()          // Information
+icons::lucide::alert_circle()  // Warning
+```
+
+## Icon Sizes
+
+Recommended icon sizes for different contexts:
+
+```rust
+// Small icons (inline text, compact UI)
+Size::px(16.)
+
+// Default icons (buttons, navigation)
+Size::px(20.) or Size::px(24.)
+
+// Large icons (headers, feature highlights)
+Size::px(32.) or Size::px(48.)
+
+// Extra large (landing pages, empty states)
+Size::px(64.) or Size::px(96.)
+```
+
+## Custom Icons
+
+You can also add your own SVG icons:
+
+```rust
+use freya_icons::generate_svg;
+
+// In your code
+generate_svg!(my_icon, "path/to/icon.svg");
+
+// Use it
+svg(my_icon())
+    .width(Size::px(24.))
+    .height(Size::px(24.))
+```
+
+## Complete Example
+
+```rust
+use freya::{
+    icons,
+    prelude::*,
+};
+
+fn main() {
+    launch(LaunchConfig::new().with_window(WindowConfig::new(app)))
+}
+
+fn app() -> impl IntoElement {
+    use_init_root_theme(|| DARK_THEME);
+
+    rect()
+        .expanded()
+        .vertical()
+        .spacing(20.)
+        .main_align(Alignment::Center)
+        .child(
+            // Icon showcase
+            rect()
+                .horizontal()
+                .spacing(16.)
+                .child(icon_demo(icons::lucide::heart(), (255, 100, 100)))
+                .child(icon_demo(icons::lucide::star(), (255, 215, 0)))
+                .child(icon_demo(icons::lucide::check_circle(), (100, 255, 100)))
+                .child(icon_demo(icons::lucide::alert_triangle(), (255, 165, 0)))
+        )
+        .child(
+            // Icon button row
+            rect()
+                .horizontal()
+                .spacing(8.)
+                .child(icon_button(icons::lucide::home(), "Home"))
+                .child(icon_button(icons::lucide::search(), "Search"))
+                .child(icon_button(icons::lucide::user(), "Profile"))
+                .child(icon_button(icons::lucide::settings(), "Settings"))
+        )
+}
+
+fn icon_demo(icon: bytes::Bytes, color: (u8, u8, u8)) -> impl IntoElement {
+    svg(icon)
+        .width(Size::px(48.))
+        .height(Size::px(48.))
+        .color(color)
+}
+
+fn icon_button(icon: bytes::Bytes, text: &str) -> impl IntoElement {
+    Button::new()
+        .on_press(move |_| println!("Clicked: {}", text))
+        .child(
+            rect()
+                .horizontal()
+                .spacing(8.)
+                .cross_align(Alignment::Center)
+                .child(
+                    svg(icon)
+                        .width(Size::px(20.))
+                        .height(Size::px(20.))
+                        .color((200, 200, 200)),
+                )
+                .child(text),
+        )
+}
+```
+
+## Finding Icons
+
+- Browse all Lucide icons at [lucide.dev](https://lucide.dev)
+- Icons are named using snake_case (e.g., `arrow_left`, `check_circle`, `user_plus`)
+- Most icons have multiple variants (e.g., `circle`, `circle_dot`, `circle_dashed`)
+
+## Notes
+
+- Icons are embedded as SVG data at compile time
+- All icons are returned as `bytes::Bytes` containing SVG data
+- Icons scale perfectly at any size since they're vector graphics
+- Use the `svg` element to render icons
+- Icons respect the current theme colors when using theme-based color values
+- The icon data is very lightweight and adds minimal size to your binary

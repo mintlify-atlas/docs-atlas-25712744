@@ -1,0 +1,155 @@
+---
+title: Slider
+description: Slider component for selecting numeric values from a range
+---
+
+The `Slider` component allows users to select a value from 0 to 100 by dragging a thumb along a track.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut value = use_state(|| 50.0);
+    
+    rect()
+        .spacing(8.)
+        .child(format!("Value: {}%", value()))
+        .child(
+            Slider::new(move |v| value.set(v))
+                .value(value())
+        )
+}
+```
+
+## Properties
+
+<ParamField path="on_moved" type="EventHandler<f64>" required>
+  Callback fired when the slider value changes. Receives the new percentage (0-100)
+</ParamField>
+
+<ParamField path="value" type="f64" default="0.0">
+  Current value as a percentage (0-100). Values are automatically clamped to this range
+</ParamField>
+
+<ParamField path="enabled" type="bool" default="true">
+  Whether the slider can be interacted with
+</ParamField>
+
+<ParamField path="size" type="Size" default="Size::fill()">
+  Width (for horizontal) or height (for vertical) of the slider
+</ParamField>
+
+<ParamField path="direction" type="Direction" default="Direction::Horizontal">
+  Orientation: `Horizontal` or `Vertical`
+</ParamField>
+
+<ParamField path="theme" type="SliderThemePartial">
+  Custom theme for colors and styling
+</ParamField>
+
+## Horizontal Slider
+
+```rust
+let mut value = use_state(|| 25.0);
+
+Slider::new(move |v| value.set(v))
+    .value(value())
+    .size(Size::px(250.))
+```
+
+## Vertical Slider
+
+```rust
+let mut value = use_state(|| 75.0);
+
+Slider::new(move |v| value.set(v))
+    .value(value())
+    .direction(Direction::Vertical)
+    .size(Size::px(200.))
+```
+
+## Disabled State
+
+```rust
+Slider::new(|_| {})
+    .value(50.0)
+    .enabled(false)
+```
+
+## Complete Example
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut volume = use_state(|| 70.0);
+    let mut brightness = use_state(|| 80.0);
+    
+    rect()
+        .spacing(24.)
+        .padding(24.)
+        .child(
+            rect()
+                .spacing(8.)
+                .child(format!("Volume: {}%", volume().floor()))
+                .child(
+                    Slider::new(move |v| volume.set(v))
+                        .value(volume())
+                        .size(Size::px(300.))
+                )
+        )
+        .child(
+            rect()
+                .horizontal()
+                .spacing(8.)
+                .child(
+                    Slider::new(move |v| brightness.set(v))
+                        .value(brightness())
+                        .direction(Direction::Vertical)
+                        .size(Size::px(150.))
+                )
+                .child(format!("Brightness: {}%", brightness().floor()))
+        )
+}
+```
+
+## Keyboard Control
+
+When focused, sliders can be controlled with keyboard:
+
+- **Arrow Left/Down**: Decrease by 4%
+- **Arrow Right/Up**: Increase by 4%
+
+## Interaction
+
+- **Click**: Jump to clicked position
+- **Drag**: Continuously update value while dragging
+- **Keyboard**: Use arrow keys when focused
+
+## Accessibility
+
+- `role="slider"`
+- Keyboard focusable and controllable
+- Focus indicators
+- Proper ARIA attributes
+
+## Theming
+
+Customize slider appearance:
+
+```rust
+Slider::new(move |v| value.set(v))
+    .value(value())
+    .theme(SliderThemePartial {
+        background: Some(Color::from_rgb(200, 200, 200)),
+        thumb_background: Some(Color::from_rgb(100, 100, 255)),
+        thumb_inner_background: Some(Color::from_rgb(50, 50, 200)),
+        ..Default::default()
+    })
+```
+
+## Source
+
+View the full implementation: [slider.rs](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/slider.rs)

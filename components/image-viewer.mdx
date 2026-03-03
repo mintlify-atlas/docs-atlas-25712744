@@ -1,0 +1,236 @@
+---
+title: ImageViewer
+description: Display images from URLs, file paths, or embedded bytes with loading states
+---
+
+The `ImageViewer` component loads and displays images from various sources with automatic loading indicators.
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let image: ImageSource = "https://example.com/image.jpg".into();
+    
+    ImageViewer::new(image)
+}
+```
+
+## Image Sources
+
+### Remote URL
+
+Load images from the web (requires `remote-asset` feature):
+
+```rust
+let source: ImageSource = "https://example.com/image.jpg".into();
+ImageViewer::new(source)
+```
+
+### File Path
+
+Load images from the filesystem:
+
+```rust
+use std::path::PathBuf;
+
+let source: ImageSource = PathBuf::from("./images/photo.png").into();
+ImageViewer::new(source)
+```
+
+### Embedded Bytes
+
+Embed images directly in the binary:
+
+```rust
+let source: ImageSource = (
+    "my-image",  // Unique identifier
+    include_bytes!("./assets/logo.png")
+).into();
+
+ImageViewer::new(source)
+```
+
+## Properties
+
+<ParamField path="source" type="ImageSource" required>
+  Image source (URL, path, or bytes)
+</ParamField>
+
+Plus all standard layout and styling properties:
+
+- `width()`, `height()`
+- `corner_radius()`
+- `a11y_alt()` - Alternative text for accessibility
+- And more via `LayoutExt`, `ImageExt`, `AccessibilityExt`
+
+## ImageSource
+
+The `ImageSource` enum supports three types:
+
+```rust
+pub enum ImageSource {
+    Uri(Uri),                          // Remote (requires remote-asset feature)
+    Path(PathBuf),                     // Local file
+    Bytes(&'static str, Bytes),        // Embedded
+}
+```
+
+## Complete Example
+
+```rust
+use freya::prelude::*;
+use std::path::PathBuf;
+
+fn app() -> impl IntoElement {
+    let remote = "https://images.example.com/photo.jpg";
+    let local = PathBuf::from("./assets/logo.png");
+    let embedded = ("icon", include_bytes!("./assets/icon.png"));
+    
+    rect()
+        .horizontal()
+        .spacing(16.)
+        .child(
+            ImageViewer::new(remote)
+                .width(Size::px(200.))
+                .height(Size::px(200.))
+                .a11y_alt("A beautiful photo")
+        )
+        .child(
+            ImageViewer::new(local)
+                .width(Size::px(200.))
+                .height(Size::px(200.))
+        )
+        .child(
+            ImageViewer::new(embedded)
+                .width(Size::px(64.))
+                .height(Size::px(64.))
+        )
+}
+```
+
+## Loading States
+
+ImageViewer automatically handles loading states:
+
+1. **Pending**: Initial state
+2. **Loading**: Fetching/decoding the image (shows loader)
+3. **Cached**: Image loaded successfully (displays image)
+4. **Error**: Failed to load (displays error message)
+
+```rust
+// Shows CircularLoader while loading
+ImageViewer::new("https://example.com/large-image.jpg")
+```
+
+## Sizing
+
+Control image dimensions:
+
+```rust
+// Fixed size
+ImageViewer::new(source)
+    .width(Size::px(300.))
+    .height(Size::px(200.))
+
+// Percentage
+ImageViewer::new(source)
+    .width(Size::percent(50.))
+    .height(Size::percent(50.))
+
+// Fill container
+ImageViewer::new(source)
+    .width(Size::fill())
+    .height(Size::fill())
+```
+
+## Corner Radius
+
+Round the corners:
+
+```rust
+ImageViewer::new(source)
+    .width(Size::px(100.))
+    .height(Size::px(100.))
+    .corner_radius(50.)  // Circle
+```
+
+## Accessibility
+
+Provide alternative text for screen readers:
+
+```rust
+ImageViewer::new(source)
+    .a11y_alt("Company logo")
+    .a11y_role(AccessibilityRole::Image)
+```
+
+## Image Gallery
+
+Create a responsive image gallery:
+
+```rust
+let images = vec![
+    "https://example.com/1.jpg",
+    "https://example.com/2.jpg",
+    "https://example.com/3.jpg",
+];
+
+ScrollView::new().child(
+    rect()
+        .direction(Direction::Horizontal)
+        .spacing(12.)
+        .children(
+            images.into_iter().map(|url| {
+                ImageViewer::new(url)
+                    .width(Size::px(200.))
+                    .height(Size::px(200.))
+                    .corner_radius(8.)
+                    .into()
+            })
+        )
+)
+```
+
+## Lazy Loading
+
+Images are loaded asynchronously and cached:
+
+```rust
+// Multiple instances with same source share the cached image
+rect()
+    .horizontal()
+    .child(ImageViewer::new("https://example.com/image.jpg"))
+    .child(ImageViewer::new("https://example.com/image.jpg"))  // Uses cache
+```
+
+## Performance
+
+- Images are fetched asynchronously
+- Automatic caching prevents duplicate downloads
+- Efficient image decoding with Skia
+- Loading indicators prevent layout shifts
+
+## Error Handling
+
+If an image fails to load, the error message is displayed:
+
+```rust
+ImageViewer::new("https://invalid-url.com/missing.jpg")
+// Will show: "Failed to load image: ..."
+```
+
+## Supported Formats
+
+Supports common image formats:
+- PNG
+- JPEG
+- GIF
+- WebP
+- BMP
+- ICO
+
+## Source
+
+View the full implementation: [image_viewer.rs](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/image_viewer.rs)

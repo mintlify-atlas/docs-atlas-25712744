@@ -1,0 +1,270 @@
+---
+title: label()
+description: Draw simple text with automatic layout and styling
+---
+
+`label()` is used to draw text. It's a simplified version of `paragraph()` for rendering single-style text.
+
+## Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    label()
+        .text("Hello, world!")
+        .font_size(16.0)
+        .color(Color::BLACK)
+}
+```
+
+## String Conversion
+
+You can use string literals and `String` values directly as elements:
+
+```rust
+// These are equivalent:
+"Hello"
+label().text("Hello")
+```
+
+## Builder Methods
+
+### Text Content
+
+<ParamField path="text" type="impl Into<Cow<'static, str>>">
+  Set the text content.
+  
+  ```rust
+  label().text("Hello")
+  label().text(String::from("Hello"))
+  ```
+</ParamField>
+
+### Text Style
+
+<ParamField path="color" type="Color">
+  Set the text color.
+  
+  ```rust
+  label().text("Red text").color(Color::RED)
+  label().text("Custom").color((255, 128, 0))
+  ```
+</ParamField>
+
+<ParamField path="font_size" type="FontSize">
+  Set the font size.
+  
+  ```rust
+  label().text("Large").font_size(24.0)
+  label().text("Small").font_size(12.0)
+  ```
+</ParamField>
+
+<ParamField path="font_family" type="impl Into<Cow<'static, str>>">
+  Set the font family.
+  
+  ```rust
+  label().text("Mono").font_family("Fira Code")
+  ```
+</ParamField>
+
+<ParamField path="font_weight" type="FontWeight">
+  Set the font weight.
+  
+  ```rust
+  label().text("Bold").font_weight(FontWeight::BOLD)
+  label().text("Light").font_weight(FontWeight::LIGHT)
+  ```
+</ParamField>
+
+<ParamField path="font_slant" type="FontSlant">
+  Set the font slant (italic).
+  
+  ```rust
+  label().text("Italic").font_slant(FontSlant::ITALIC)
+  ```
+</ParamField>
+
+<ParamField path="font_width" type="FontWidth">
+  Set the font width (condensed, expanded, etc.).
+  
+  ```rust
+  label().text("Condensed").font_width(FontWidth::CONDENSED)
+  ```
+</ParamField>
+
+<ParamField path="text_align" type="TextAlign">
+  Set text alignment.
+  
+  ```rust
+  label().text("Centered").text_align(TextAlign::Center)
+  ```
+</ParamField>
+
+<ParamField path="text_overflow" type="TextOverflow">
+  Set overflow behavior.
+  
+  ```rust
+  label().text("Long text...").text_overflow(TextOverflow::Ellipsis)
+  ```
+</ParamField>
+
+<ParamField path="text_shadow" type="TextShadow">
+  Add a text shadow.
+  
+  ```rust
+  label()
+      .text("Shadowed")
+      .text_shadow(TextShadow::new(
+          (2.0, 2.0),
+          5.0,
+          Color::BLACK.with_opacity(0.5)
+      ))
+  ```
+</ParamField>
+
+### Text Layout
+
+<ParamField path="max_lines" type="impl Into<Option<usize>>">
+  Set the maximum number of lines.
+  
+  ```rust
+  label()
+      .text("Long text that will wrap...")
+      .max_lines(2)
+  ```
+</ParamField>
+
+<ParamField path="line_height" type="impl Into<Option<f32>>">
+  Set the line height multiplier.
+  
+  ```rust
+  label()
+      .text("Multiple\nlines")
+      .line_height(1.5)
+  ```
+</ParamField>
+
+### Layout
+
+<ParamField path="width" type="Size">
+  Set the width constraint.
+  
+  ```rust
+  label().text("Fixed width").width(200.0)
+  ```
+</ParamField>
+
+<ParamField path="height" type="Size">
+  Set the height constraint.
+  
+  ```rust
+  label().text("Fixed height").height(50.0)
+  ```
+</ParamField>
+
+<ParamField path="padding" type="Gaps">
+  Set padding around the text.
+  
+  ```rust
+  label().text("Padded").padding(10.0)
+  ```
+</ParamField>
+
+<ParamField path="margin" type="Gaps">
+  Set margin outside the label.
+  
+  ```rust
+  label().text("Margin").margin(5.0)
+  ```
+</ParamField>
+
+### Accessibility
+
+<ParamField path="a11y_id" type="AccessibilityId">
+  Set the accessibility ID.
+</ParamField>
+
+<ParamField path="a11y_alt" type="impl Into<Box<str>>">
+  Set alternative text for screen readers.
+  
+  ```rust
+  label().text("→").a11y_alt("Next button")
+  ```
+</ParamField>
+
+### Events
+
+<ParamField path="on_press" type="EventHandler">
+  Handle press/click events.
+  
+  ```rust
+  label()
+      .text("Click me")
+      .on_press(|_| println!("Clicked!"))
+  ```
+</ParamField>
+
+<ParamField path="on_mouse_move" type="EventHandler<MouseEventData>">
+  Handle mouse move events.
+</ParamField>
+
+## Examples
+
+### Basic Text
+
+```rust
+label()
+    .text("Hello, Freya!")
+    .font_size(24.0)
+    .color(Color::BLACK)
+```
+
+### Styled Heading
+
+```rust
+label()
+    .text("Welcome")
+    .font_size(32.0)
+    .font_weight(FontWeight::BOLD)
+    .color((50, 50, 255))
+```
+
+### Truncated Text
+
+```rust
+label()
+    .text("This is a very long text that will be truncated with an ellipsis")
+    .width(200.0)
+    .max_lines(1)
+    .text_overflow(TextOverflow::Ellipsis)
+```
+
+### Multi-line with Custom Line Height
+
+```rust
+label()
+    .text("Line one\nLine two\nLine three")
+    .line_height(1.8)
+    .color(Color::GRAY)
+```
+
+### Interactive Label
+
+```rust
+let mut clicked = use_state(|| false);
+
+label()
+    .text(if clicked() { "Clicked!" } else { "Click me" })
+    .font_size(18.0)
+    .color(if clicked() { Color::GREEN } else { Color::BLUE })
+    .on_press(move |_| clicked.set(true))
+```
+
+## Notes
+
+- Label automatically measures its content and sizes itself accordingly
+- For rich text with multiple styles, use `paragraph()` instead
+- Text color can be inherited from parent elements
+- Use string literals directly as a shorthand: `"text"` instead of `label().text("text")`

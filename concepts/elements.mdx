@@ -1,0 +1,526 @@
+---
+title: Elements
+description: Core UI building blocks in Freya - rect, label, paragraph, and svg
+---
+
+## Overview
+
+Elements are the fundamental building blocks for creating user interfaces in Freya. They represent visual primitives like containers, text, and vector graphics. Every component ultimately renders elements.
+
+<Note>
+  Elements in Freya are similar to HTML tags or Flutter widgets - they're the actual UI primitives that get rendered to the screen.
+</Note>
+
+## Core Elements
+
+Freya provides four core elements:
+
+<CardGroup cols={2}>
+  <Card title="rect()" icon="square">
+    Generic container for layout and styling
+  </Card>
+  <Card title="label()" icon="text">
+    Simple text rendering
+  </Card>
+  <Card title="paragraph()" icon="paragraph">
+    Rich text with multiple styles
+  </Card>
+  <Card title="svg()" icon="image">
+    Vector graphics rendering
+  </Card>
+</CardGroup>
+
+## rect() - Container Element
+
+The `rect()` function creates a rectangular container - the most versatile element in Freya. Think of it as a `<div>` in HTML or a `Container` in other UI frameworks.
+
+### Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .width(Size::px(200.))
+        .height(Size::px(100.))
+        .background((255, 0, 0))
+}
+```
+
+### Layout Properties
+
+`rect()` supports comprehensive layout control:
+
+```rust
+rect()
+    // Size
+    .width(Size::fill())          // Fill available space
+    .height(Size::px(100.))       // Fixed height
+    .min_width(Size::px(200.))    // Minimum width
+    .max_height(Size::px(500.))   // Maximum height
+    
+    // Spacing
+    .padding(Gaps::new_all(12.))  // Inner padding
+    .margin(Gaps::new_all(8.))    // Outer margin
+    
+    // Direction & Alignment
+    .horizontal()                  // Horizontal layout
+    .center()                      // Center children
+    .spacing(8.0)                  // Gap between children
+```
+
+<Tabs>
+  <Tab title="Vertical Layout">
+    ```rust
+    rect()
+        .child(rect().height(Size::px(50.)).background((255, 0, 0)))
+        .child(rect().height(Size::px(50.)).background((0, 255, 0)))
+        .child(rect().height(Size::px(50.)).background((0, 0, 255)))
+    ```
+  </Tab>
+  <Tab title="Horizontal Layout">
+    ```rust
+    rect()
+        .horizontal()
+        .child(rect().width(Size::px(50.)).background((255, 0, 0)))
+        .child(rect().width(Size::px(50.)).background((0, 255, 0)))
+        .child(rect().width(Size::px(50.)).background((0, 0, 255)))
+    ```
+  </Tab>
+  <Tab title="Centered Layout">
+    ```rust
+    rect()
+        .center()
+        .width(Size::fill())
+        .height(Size::fill())
+        .child("Centered content")
+    ```
+  </Tab>
+</Tabs>
+
+### Visual Styling
+
+```rust
+rect()
+    // Background
+    .background((50, 50, 50))     // Solid color
+    .background(Color::RED)       // Named color
+    
+    // Borders
+    .border(Border::all((2., (0, 0, 0, 255))))
+    .corner_radius(CornerRadius::new(8.))
+    
+    // Shadows
+    .shadow((0., 4., 20., 4., (0, 0, 0, 80)))
+    
+    // Effects
+    .opacity(0.8)
+    .blur(5.0)
+    .rotate(45.0)
+    .scale((1.2, 1.2))
+```
+
+### Text Styling (Inherited by Children)
+
+```rust
+rect()
+    .color((255, 255, 255))       // Text color
+    .font_size(16.0)              // Font size
+    .font_weight(FontWeight::BOLD) // Font weight
+    .child("Styled text")         // Inherits these styles
+```
+
+### Advanced Features
+
+<AccordionGroup>
+  <Accordion title="Overflow Control">
+    ```rust
+    rect()
+        .overflow(Overflow::Clip)  // Clip overflowing content
+        .width(Size::px(100.))
+        .height(Size::px(100.))
+        .child(
+            rect()
+                .width(Size::px(200.)) // Larger than parent
+                .height(Size::px(200.))
+        )
+    ```
+  </Accordion>
+
+  <Accordion title="Scrollable Content">
+    ```rust
+    rect()
+        .scroll_y(true)  // Enable vertical scrolling
+        .height(Size::px(200.))
+        .child(
+            rect().height(Size::px(1000.)) // Content larger than container
+        )
+    ```
+  </Accordion>
+
+  <Accordion title="Gradients">
+    ```rust
+    rect()
+        .background(LinearGradient::new(
+            vec![
+                (0.0, Color::RED),
+                (1.0, Color::BLUE),
+            ]
+        ))
+        .width(Size::px(200.))
+        .height(Size::px(200.))
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## label() - Simple Text
+
+The `label()` function renders simple text. It's optimized for single-style text content.
+
+### Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    label()
+        .text("Hello, World!")
+        .font_size(24.0)
+        .color((255, 0, 0))
+}
+```
+
+<Note>
+  Freya provides convenient `Into<Element>` implementations for `&str` and `String`, so you can often just use strings directly:
+  
+  ```rust
+  rect().child("Hello!") // Automatically becomes a label
+  ```
+</Note>
+
+### Text Properties
+
+```rust
+label()
+    .text("Hello, World!")
+    .font_size(16.0)
+    .color((255, 255, 255))
+    .font_weight(FontWeight::BOLD)
+    .font_slant(FontSlant::Italic)
+    .text_align(TextAlign::Center)
+    .max_lines(3)
+    .line_height(1.5)
+```
+
+### Text Alignment
+
+```rust
+// Left aligned (default)
+label()
+    .text("Left aligned")
+    .text_align(TextAlign::Left)
+
+// Center aligned
+label()
+    .text("Center aligned")
+    .text_align(TextAlign::Center)
+
+// Right aligned
+label()
+    .text("Right aligned")
+    .text_align(TextAlign::Right)
+```
+
+### Line Limits and Overflow
+
+```rust
+// Limit to 2 lines with ellipsis
+label()
+    .text("This is a very long text that will be truncated")
+    .max_lines(2)
+    .text_overflow(TextOverflow::Ellipsis)
+```
+
+## paragraph() - Rich Text
+
+The `paragraph()` function enables rich text with multiple styles using spans.
+
+### Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    paragraph()
+        .span(Span::new("Hello ").color(Color::RED))
+        .span(Span::new("World!").font_size(24.0).font_weight(FontWeight::BOLD))
+}
+```
+
+### Styling Spans
+
+Each span can have its own styling:
+
+```rust
+paragraph()
+    .span(
+        Span::new("Bold text")
+            .font_weight(FontWeight::BOLD)
+    )
+    .span(
+        Span::new(" Italic text")
+            .font_slant(FontSlant::Italic)
+    )
+    .span(
+        Span::new(" Colored text")
+            .color((255, 0, 0))
+    )
+    .span(
+        Span::new(" Large text")
+            .font_size(24.0)
+    )
+```
+
+### Text Editor Features
+
+Paragraphs support cursor and highlighting for text editors:
+
+```rust
+let mut cursor_index = use_state(|| 0);
+
+paragraph()
+    .span(Span::new("Edit this text"))
+    .cursor_index(cursor_index.read())
+    .cursor_color((0, 0, 255))
+    .cursor_style(CursorStyle::Line)
+    .highlights(vec![(0, 4)])  // Highlight "Edit"
+    .highlight_color((255, 255, 0, 100))
+```
+
+<Tabs>
+  <Tab title="Line Cursor">
+    ```rust
+    paragraph()
+        .span(Span::new("Text"))
+        .cursor_index(2)
+        .cursor_style(CursorStyle::Line)
+    ```
+  </Tab>
+  <Tab title="Block Cursor">
+    ```rust
+    paragraph()
+        .span(Span::new("Text"))
+        .cursor_index(2)
+        .cursor_style(CursorStyle::Block)
+    ```
+  </Tab>
+  <Tab title="Underline Cursor">
+    ```rust
+    paragraph()
+        .span(Span::new("Text"))
+        .cursor_index(2)
+        .cursor_style(CursorStyle::Underline)
+    ```
+  </Tab>
+</Tabs>
+
+### Building Spans Dynamically
+
+```rust
+let words = vec!["Hello", "Beautiful", "World"];
+
+paragraph()
+    .spans_iter(
+        words.into_iter().enumerate().map(|(i, word)| {
+            Span::new(format!("{} ", word))
+                .color(if i % 2 == 0 { Color::RED } else { Color::BLUE })
+        })
+    )
+```
+
+## svg() - Vector Graphics
+
+The `svg()` function renders SVG vector graphics.
+
+### Basic Usage
+
+```rust
+use freya::prelude::*;
+use bytes::Bytes;
+
+fn app() -> impl IntoElement {
+    svg(Bytes::from_static(include_bytes!("logo.svg")))
+        .width(Size::px(200.))
+        .height(Size::px(200.))
+}
+```
+
+### Loading SVGs
+
+<Tabs>
+  <Tab title="Embedded">
+    ```rust
+    // Include SVG at compile time
+    svg(Bytes::from_static(include_bytes!("../assets/icon.svg")))
+    ```
+  </Tab>
+  <Tab title="Runtime">
+    ```rust
+    // Load SVG at runtime
+    let svg_data = std::fs::read("icon.svg").unwrap();
+    svg(Bytes::from(svg_data))
+    ```
+  </Tab>
+  <Tab title="Network">
+    ```rust
+    // Load from network (requires async)
+    let svg_data = use_resource(|| async {
+        reqwest::get("https://example.com/icon.svg")
+            .await.unwrap()
+            .bytes().await.unwrap()
+    });
+    
+    if let Some(data) = svg_data.read().as_ref() {
+        svg(data.clone())
+    } else {
+        "Loading..."
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Styling SVGs
+
+```rust
+svg(bytes)
+    .width(Size::px(100.))
+    .height(Size::px(100.))
+    .color((255, 0, 0))     // Override default color
+    .fill((0, 255, 0))      // Override fill
+    .stroke((0, 0, 255))    // Override stroke
+    .rotate(45.0)           // Rotate the SVG
+```
+
+## Element Comparison
+
+| Feature | rect() | label() | paragraph() | svg() |
+|---------|--------|---------|-------------|-------|
+| **Purpose** | Container & Layout | Simple text | Rich text | Vector graphics |
+| **Children** | ✅ Yes | ❌ No | ❌ No | ❌ No |
+| **Text Content** | ❌ No | ✅ Yes | ✅ Yes | ❌ No |
+| **Multiple Styles** | ❌ No | ❌ No | ✅ Yes | ✅ Yes |
+| **Layout Control** | ✅ Full | ⚠️ Limited | ⚠️ Limited | ⚠️ Limited |
+| **Background** | ✅ Yes | ❌ No | ❌ No | ❌ No |
+| **Border** | ✅ Yes | ❌ No | ❌ No | ❌ No |
+
+## Practical Examples
+
+<AccordionGroup>
+  <Accordion title="Card Component">
+    ```rust
+    fn card(title: &str, content: &str) -> impl IntoElement {
+        rect()
+            .padding(Gaps::new_all(16.))
+            .background((255, 255, 255))
+            .corner_radius(CornerRadius::new(8.))
+            .shadow((0., 2., 8., 0., (0, 0, 0, 30)))
+            .child(
+                rect()
+                    .child(
+                        label()
+                            .text(title)
+                            .font_size(20.0)
+                            .font_weight(FontWeight::BOLD)
+                    )
+                    .child(
+                        label()
+                            .text(content)
+                            .color((100, 100, 100))
+                    )
+            )
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Icon with Label">
+    ```rust
+    fn icon_label(icon_data: Bytes, text: &str) -> impl IntoElement {
+        rect()
+            .horizontal()
+            .center()
+            .spacing(8.0)
+            .child(
+                svg(icon_data)
+                    .width(Size::px(24.))
+                    .height(Size::px(24.))
+            )
+            .child(label().text(text))
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Highlighted Text">
+    ```rust
+    fn search_result(text: &str, query: &str) -> impl IntoElement {
+        // Find query position
+        let start = text.find(query).unwrap_or(0);
+        let end = start + query.len();
+        
+        paragraph()
+            .span(Span::new(&text[..start]))
+            .span(
+                Span::new(&text[start..end])
+                    .background((255, 255, 0))
+                    .font_weight(FontWeight::BOLD)
+            )
+            .span(Span::new(&text[end..]))
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Steps>
+  <Step title="Choose the right element">
+    - Use `rect()` for layout and containers
+    - Use `label()` for simple text
+    - Use `paragraph()` for styled text
+    - Use `svg()` for icons and vector graphics
+  </Step>
+
+  <Step title="Optimize text rendering">
+    Prefer `label()` over `paragraph()` when you don't need multiple styles - it's more efficient.
+  </Step>
+
+  <Step title="Use string shortcuts">
+    ```rust
+    // Instead of:
+    rect().child(label().text("Hello"))
+    
+    // Use:
+    rect().child("Hello")
+    ```
+  </Step>
+
+  <Step title="Preload assets">
+    For SVGs and images, use `include_bytes!()` to embed them at compile time for faster loading.
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Components" icon="puzzle-piece" href="/concepts/components">
+    Build reusable components with elements
+  </Card>
+  <Card title="Events" icon="hand-pointer" href="/concepts/events">
+    Make elements interactive
+  </Card>
+  <Card title="Layers" icon="layer-group" href="/concepts/layers">
+    Control rendering order
+  </Card>
+  <Card title="State Management" icon="database" href="/concepts/state-management">
+    Add dynamic behavior
+  </Card>
+</CardGroup>

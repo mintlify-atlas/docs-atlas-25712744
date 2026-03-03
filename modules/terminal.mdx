@@ -1,0 +1,289 @@
+---
+title: Terminal Emulator
+description: Embed interactive terminal emulators in your Freya applications
+---
+
+The Terminal module provides a way to embed interactive terminal emulators in your Freya applications. It uses PTY (pseudo-terminal) to spawn shell processes and renders VT100-compatible terminal output with full 256-color support.
+
+## Installation
+
+Enable the `terminal` feature in your `Cargo.toml`:
+
+```toml
+[dependencies]
+freya = { version = "0.4", features = ["terminal"] }
+```
+
+## Basic Usage
+
+```rust
+use freya::{
+    prelude::*,
+    terminal::*,
+};
+
+fn app() -> impl IntoElement {
+    let mut handle = use_state(|| {
+        let mut cmd = CommandBuilder::new("bash");
+        cmd.env("TERM", "xterm-256color");
+        TerminalHandle::new(TerminalId::new(), cmd, None).ok()
+    });
+
+    let focus = use_focus();
+
+    rect().expanded().background((30, 30, 30)).child(
+        if let Some(handle) = handle.read().clone() {
+            rect()
+                .child(Terminal::new(handle.clone()))
+                .expanded()
+                .a11y_id(focus.a11y_id())
+                .on_mouse_down(move |_| focus.request_focus())
+                .on_key_down(move |e: Event<KeyboardEventData>| {
+                    if let Some(ch) = e.try_as_str() {
+                        let _ = handle.write(ch.as_bytes());
+                    } else {
+                        let _ = handle.write(match &e.key {
+                            Key::Named(NamedKey::Enter) => b"\n",
+                            Key::Named(NamedKey::Backspace) => &[0x7f],
+                            Key::Named(NamedKey::Tab) => b"\t",
+                            Key::Named(NamedKey::ArrowUp) => b"\x1b[A",
+                            Key::Named(NamedKey::ArrowDown) => b"\x1b[B",
+                            Key::Named(NamedKey::ArrowLeft) => b"\x1b[D",
+                            Key::Named(NamedKey::ArrowRight) => b"\x1b[C",
+                            _ => return,
+                        });
+                    }
+                })
+                .into_element()
+        } else {
+            "Failed to start Terminal.".into_element()
+        }
+    )
+}
+```
+
+## Features
+
+- **PTY Integration**: Spawn and interact with shell processes
+- **VT100 Rendering**: Full terminal emulation with cursor, colors, and text attributes
+- **256-Color Support**: ANSI 16 colors, 6x6x6 RGB cube, and 24-level grayscale
+- **Keyboard Input**: Handle all standard terminal key sequences
+- **Auto-resize**: Terminal automatically resizes based on available space
+- **Mouse Support**: Full mouse event handling (click, drag, scroll)
+- **Text Selection**: Select and copy terminal text
+
+## Setting Up a Terminal
+
+### Creating a Terminal Handle
+
+```rust
+let mut handle = use_state(|| {
+    let mut cmd = CommandBuilder::new("bash");
+    cmd.env("TERM", "xterm-256color");
+    cmd.env("COLORTERM", "truecolor");
+    cmd.env("LANG", "en_GB.UTF-8");
+    TerminalHandle::new(TerminalId::new(), cmd, None).ok()
+});
+```
+
+### Different Shells
+
+```rust
+// PowerShell on Windows
+let mut cmd = CommandBuilder::new("powershell");
+
+// Zsh on Unix
+let mut cmd = CommandBuilder::new("zsh");
+
+// Custom command with arguments
+let mut cmd = CommandBuilder::new("python");
+cmd.arg("-i");
+```
+
+## Handling Terminal Events
+
+### Keyboard Input
+
+Handle keyboard events and send input to the terminal:
+
+```rust
+.on_key_down(move |e: Event<KeyboardEventData>| {
+    let mods = e.modifiers;
+    let ctrl_shift = mods.contains(Modifiers::CONTROL | Modifiers::SHIFT);
+    let ctrl = mods.contains(Modifiers::CONTROL);
+
+    match &e.key {
+        // Copy selection
+        Key::Character(ch) if ctrl_shift && ch.eq_ignore_ascii_case("c") => {
+            if let Some(text) = handle.get_selected_text() {
+                let _ = Clipboard::set(text);
+            }
+        }
+        // Paste
+        Key::Character(ch) if ctrl_shift && ch.eq_ignore_ascii_case("v") => {
+            if let Ok(text) = Clipboard::get() {
+                let _ = handle.write(text.as_bytes());
+            }
+        }
+        // Control characters
+        Key::Character(ch) if ctrl && ch.len() == 1 => {
+            let _ = handle.write(&[ch.as_bytes()[0] & 0x1f]);
+        }
+        Key::Named(NamedKey::Enter) => {
+            let _ = handle.write(b"\r");
+        }
+        Key::Named(NamedKey::Backspace) => {
+            let _ = handle.write(&[0x7f]);
+        }
+        Key::Named(NamedKey::ArrowUp) => {
+            let _ = handle.write(b"\x1b[A");
+        }
+        _ => {
+            if let Some(ch) = e.try_as_str() {
+                let _ = handle.write(ch.as_bytes());
+            }
+        }
+    }
+})
+```
+
+### Mouse Events
+
+```rust
+let mut dimensions = use_state(|| (0.0, 0.0));
+
+Terminal::new(handle.clone())
+    .on_measured(move |(char_width, line_height)| {
+        dimensions.set((char_width, line_height));
+    })
+    .on_mouse_down({
+        let handle = handle.clone();
+        move |e: Event<MouseEventData>| {
+            let (char_width, line_height) = dimensions();
+            let col = (e.element_location.x / char_width as f64).floor() as usize;
+            let row = (e.element_location.y / line_height as f64).floor() as usize;
+            let button = match e.button {
+                Some(MouseButton::Middle) => TerminalMouseButton::Middle,
+                Some(MouseButton::Right) => TerminalMouseButton::Right,
+                _ => TerminalMouseButton::Left,
+            };
+            handle.mouse_down(row, col, button);
+        }
+    })
+    .on_wheel({
+        let handle = handle.clone();
+        move |e: Event<WheelEventData>| {
+            let (char_width, line_height) = dimensions();
+            let col = (e.element_location.x / char_width as f64).floor() as usize;
+            let row = (e.element_location.y / line_height as f64).floor() as usize;
+            handle.wheel(e.delta_y, row, col);
+        }
+    })
+```
+
+## Detecting Terminal Exit
+
+Use `use_future` to detect when the terminal process exits:
+
+```rust
+use_future(move || async move {
+    if let Some(terminal_handle) = handle.read().clone() {
+        terminal_handle.closed().await;
+        // Terminal has exited, update UI
+        let _ = handle.write().take();
+    }
+});
+```
+
+## Window Title Integration
+
+Update the window title based on terminal output:
+
+```rust
+use_future(move || async move {
+    if let Some(terminal_handle) = handle.read().clone() {
+        loop {
+            futures_util::select! {
+                _ = terminal_handle.closed().fuse() => {
+                    let _ = handle.write().take();
+                    break;
+                }
+                _ = terminal_handle.title_changed().fuse() => {
+                    if let Some(new_title) = terminal_handle.title() {
+                        Platform::get().with_window(None, move |window| {
+                            window.set_title(&new_title);
+                        });
+                    }
+                }
+            }
+        }
+    }
+});
+```
+
+## Multiple Terminals
+
+Create multiple terminal instances using unique IDs:
+
+```rust
+let mut terminals = use_state(|| {
+    vec![
+        TerminalHandle::new(
+            TerminalId::new(),
+            CommandBuilder::new("bash"),
+            None
+        ).ok()
+    ]
+});
+
+// Add new terminal
+terminals.write().push(
+    TerminalHandle::new(
+        TerminalId::new(),
+        CommandBuilder::new("bash"),
+        None
+    ).ok()
+);
+```
+
+## Key Types
+
+### TerminalHandle
+
+Manages the terminal process and PTY:
+
+- `write(bytes)` - Send input to the terminal
+- `closed()` - Future that resolves when terminal exits
+- `title()` - Get current terminal title
+- `title_changed()` - Future that resolves on title change
+- `get_selected_text()` - Get currently selected text
+- `mouse_down()`, `mouse_up()`, `mouse_move()` - Mouse interaction
+- `shift_pressed(bool)` - Track shift key state for selection
+
+### TerminalId
+
+Unique identifier for terminal instances:
+
+```rust
+let id = TerminalId::new();
+```
+
+### CommandBuilder
+
+From the `portable_pty` crate, used to configure the shell:
+
+```rust
+let mut cmd = CommandBuilder::new("bash");
+cmd.env("TERM", "xterm-256color");
+cmd.arg("--login");
+```
+
+## Example: Full Terminal Application
+
+See the `feature_terminal.rs` example in the repository for a complete implementation with:
+
+- Keyboard handling (including copy/paste)
+- Mouse support (selection, clicking, scrolling)
+- Window title updates
+- Terminal exit detection
+- Focus management

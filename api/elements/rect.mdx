@@ -1,0 +1,374 @@
+---
+title: rect()
+description: A generic container element for composing UI layouts
+---
+
+`rect()` acts as a generic container to contain other elements inside, like a box. It's the equivalent of `view`/`div`/`container` in other UI models.
+
+## Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    rect()
+        .expanded()
+        .background((0, 255, 0))
+        .child(label().text("Hello"))
+}
+```
+
+## Builder Methods
+
+### Layout
+
+<ParamField path="width" type="Size">
+  Set the width of the rect.
+  
+  ```rust
+  rect().width(100.0)
+  rect().width(Size::fill())
+  ```
+</ParamField>
+
+<ParamField path="height" type="Size">
+  Set the height of the rect.
+  
+  ```rust
+  rect().height(100.0)
+  rect().height(Size::fill())
+  ```
+</ParamField>
+
+<ParamField path="expanded" type="()">
+  Expand both width and height using `Size::fill()`.
+  
+  ```rust
+  rect().expanded()
+  ```
+</ParamField>
+
+<ParamField path="padding" type="Gaps">
+  Set padding inside the rect.
+  
+  ```rust
+  rect().padding(10.0)
+  rect().padding((10.0, 20.0))
+  ```
+</ParamField>
+
+<ParamField path="margin" type="Gaps">
+  Set margin outside the rect.
+  
+  ```rust
+  rect().margin(10.0)
+  ```
+</ParamField>
+
+<ParamField path="min_width" type="Size">
+  Set the minimum width.
+  
+  ```rust
+  rect().min_width(100.0)
+  ```
+</ParamField>
+
+<ParamField path="min_height" type="Size">
+  Set the minimum height.
+  
+  ```rust
+  rect().min_height(100.0)
+  ```
+</ParamField>
+
+<ParamField path="max_width" type="Size">
+  Set the maximum width.
+  
+  ```rust
+  rect().max_width(500.0)
+  ```
+</ParamField>
+
+<ParamField path="max_height" type="Size">
+  Set the maximum height.
+  
+  ```rust
+  rect().max_height(500.0)
+  ```
+</ParamField>
+
+<ParamField path="position" type="Position">
+  Set the position type (absolute or relative).
+  
+  ```rust
+  rect().position(Position::absolute())
+  ```
+</ParamField>
+
+### Container & Content
+
+<ParamField path="direction" type="Direction">
+  Set the layout direction (horizontal or vertical).
+  
+  ```rust
+  rect().direction(Direction::vertical())
+  rect().horizontal()
+  rect().vertical()
+  ```
+</ParamField>
+
+<ParamField path="main_align" type="Alignment">
+  Set alignment along the main axis.
+  
+  ```rust
+  rect().main_align(Alignment::center())
+  ```
+</ParamField>
+
+<ParamField path="cross_align" type="Alignment">
+  Set alignment along the cross axis.
+  
+  ```rust
+  rect().cross_align(Alignment::center())
+  ```
+</ParamField>
+
+<ParamField path="center" type="()">
+  Center content both horizontally and vertically.
+  
+  ```rust
+  rect().center()
+  ```
+</ParamField>
+
+<ParamField path="spacing" type="f32">
+  Set spacing between children.
+  
+  ```rust
+  rect().spacing(10.0)
+  ```
+</ParamField>
+
+<ParamField path="content" type="Content">
+  Set the content behavior.
+  
+  ```rust
+  rect().content(Content::flex())
+  ```
+</ParamField>
+
+### Style
+
+<ParamField path="background" type="Color">
+  Set the background color.
+  
+  ```rust
+  rect().background((255, 0, 0))
+  rect().background(Color::RED)
+  rect().background("#ff0000")
+  ```
+</ParamField>
+
+<ParamField path="background_linear_gradient" type="LinearGradient">
+  Set a linear gradient background.
+  
+  ```rust
+  rect().background_linear_gradient(
+      LinearGradient::new()
+          .add_stop(0.0, Color::RED)
+          .add_stop(1.0, Color::BLUE)
+  )
+  ```
+</ParamField>
+
+<ParamField path="background_radial_gradient" type="RadialGradient">
+  Set a radial gradient background.
+</ParamField>
+
+<ParamField path="background_conic_gradient" type="ConicGradient">
+  Set a conic gradient background.
+</ParamField>
+
+<ParamField path="border" type="Border">
+  Add a border to the rect.
+  
+  ```rust
+  rect().border(Border::all(Color::BLACK, 2.0))
+  ```
+</ParamField>
+
+<ParamField path="corner_radius" type="CornerRadius">
+  Set corner radius for rounded corners.
+  
+  ```rust
+  rect().corner_radius(10.0)
+  rect().rounded()
+  rect().rounded_lg()
+  ```
+</ParamField>
+
+<ParamField path="shadow" type="Shadow">
+  Add a shadow effect.
+  
+  ```rust
+  rect().shadow(Shadow::new((0.0, 4.0), 10.0, Color::BLACK.with_opacity(0.25)))
+  ```
+</ParamField>
+
+### Effects
+
+<ParamField path="overflow" type="Overflow">
+  Set overflow behavior.
+  
+  ```rust
+  rect().overflow(Overflow::clip())
+  ```
+</ParamField>
+
+<ParamField path="rotate" type="f32">
+  Rotate the rect in degrees.
+  
+  ```rust
+  rect().rotate(45.0)
+  ```
+</ParamField>
+
+<ParamField path="scale" type="Scale">
+  Scale the rect.
+  
+  ```rust
+  rect().scale(1.5)
+  rect().scale((1.5, 2.0))
+  ```
+</ParamField>
+
+<ParamField path="opacity" type="f32">
+  Set opacity (0.0 to 1.0).
+  
+  ```rust
+  rect().opacity(0.5)
+  ```
+</ParamField>
+
+<ParamField path="blur" type="f32">
+  Apply a blur effect.
+  
+  ```rust
+  rect().blur(5.0)
+  ```
+</ParamField>
+
+### Text Style (inherited by children)
+
+<ParamField path="color" type="Color">
+  Set the text color for child text elements.
+  
+  ```rust
+  rect().color(Color::WHITE)
+  ```
+</ParamField>
+
+<ParamField path="font_size" type="FontSize">
+  Set the font size for child text elements.
+  
+  ```rust
+  rect().font_size(16.0)
+  ```
+</ParamField>
+
+### Children
+
+<ParamField path="child" type="impl IntoElement">
+  Add a child element.
+  
+  ```rust
+  rect().child(label().text("Child"))
+  ```
+</ParamField>
+
+<ParamField path="children" type="impl IntoIterator<Item = Element>">
+  Add multiple children.
+  
+  ```rust
+  rect().children(vec![
+      label().text("First").into_element(),
+      label().text("Second").into_element(),
+  ])
+  ```
+</ParamField>
+
+### Events
+
+<ParamField path="on_press" type="EventHandler">
+  Handle press/click events.
+  
+  ```rust
+  rect().on_press(|_| println!("Pressed!"))
+  ```
+</ParamField>
+
+<ParamField path="on_mouse_down" type="EventHandler<MouseEventData>">
+  Handle mouse down events.
+</ParamField>
+
+<ParamField path="on_mouse_up" type="EventHandler<MouseEventData>">
+  Handle mouse up events.
+</ParamField>
+
+<ParamField path="on_mouse_move" type="EventHandler<MouseEventData>">
+  Handle mouse move events.
+</ParamField>
+
+## Examples
+
+### Basic Container
+
+```rust
+rect()
+    .width(200.0)
+    .height(200.0)
+    .background(Color::BLUE)
+    .rounded()
+```
+
+### Flexbox Layout
+
+```rust
+rect()
+    .expanded()
+    .vertical()
+    .spacing(10.0)
+    .padding(20.0)
+    .children(vec![
+        label().text("Item 1").into_element(),
+        label().text("Item 2").into_element(),
+        label().text("Item 3").into_element(),
+    ])
+```
+
+### Centered Content
+
+```rust
+rect()
+    .expanded()
+    .center()
+    .child(
+        label().text("Centered Text")
+    )
+```
+
+### With Border and Shadow
+
+```rust
+rect()
+    .width(150.0)
+    .height(100.0)
+    .background(Color::WHITE)
+    .border(Border::all(Color::GRAY, 1.0))
+    .rounded_lg()
+    .shadow(Shadow::new(
+        (0.0, 4.0),
+        10.0,
+        Color::BLACK.with_opacity(0.1)
+    ))
+```

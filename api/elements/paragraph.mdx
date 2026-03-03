@@ -1,0 +1,388 @@
+---
+title: paragraph()
+description: Render rich text with multiple styles using spans
+---
+
+`paragraph()` makes it possible to render rich text with different styles. It's a more customizable API than `label()`, allowing you to compose text with multiple styled segments called spans.
+
+## Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    paragraph()
+        .span(Span::new("Hello ").font_size(24.0).color(Color::RED))
+        .span(Span::new("World").font_size(16.0).color(Color::BLUE))
+}
+```
+
+## Builder Methods
+
+### Content
+
+<ParamField path="span" type="impl Into<Span<'static>>">
+  Add a styled text span to the paragraph.
+  
+  ```rust
+  paragraph()
+      .span(Span::new("Bold").font_weight(FontWeight::BOLD))
+      .span(Span::new(" Regular"))
+  ```
+</ParamField>
+
+<ParamField path="spans_iter" type="impl Iterator<Item = Span<'static>>">
+  Add multiple spans from an iterator.
+  
+  ```rust
+  let spans = vec![
+      Span::new("First"),
+      Span::new("Second"),
+  ];
+  paragraph().spans_iter(spans.into_iter())
+  ```
+</ParamField>
+
+### Text Layout
+
+<ParamField path="max_lines" type="impl Into<Option<usize>>">
+  Set the maximum number of lines.
+  
+  ```rust
+  paragraph()
+      .span(Span::new("Long text..."))
+      .max_lines(3)
+  ```
+</ParamField>
+
+<ParamField path="line_height" type="impl Into<Option<f32>>">
+  Set the line height multiplier.
+  
+  ```rust
+  paragraph()
+      .span(Span::new("Text with custom spacing"))
+      .line_height(1.5)
+  ```
+</ParamField>
+
+<ParamField path="vertical_align" type="VerticalAlign">
+  Set vertical alignment of text within the paragraph area.
+  
+  ```rust
+  paragraph()
+      .span(Span::new("Centered vertically"))
+      .vertical_align(VerticalAlign::Center)
+  ```
+</ParamField>
+
+### Cursor (for text editing)
+
+<ParamField path="cursor_index" type="impl Into<Option<usize>>">
+  Set the cursor position for text editing.
+  
+  ```rust
+  paragraph()
+      .span(Span::new("Editable text"))
+      .cursor_index(5)
+  ```
+</ParamField>
+
+<ParamField path="cursor_color" type="Color">
+  Set the cursor color.
+  
+  ```rust
+  paragraph()
+      .cursor_color(Color::BLACK)
+  ```
+</ParamField>
+
+<ParamField path="cursor_style" type="CursorStyle">
+  Set the cursor style (Line, Block, or Underline).
+  
+  ```rust
+  paragraph()
+      .cursor_style(CursorStyle::Block)
+  ```
+</ParamField>
+
+<ParamField path="cursor_mode" type="CursorMode">
+  Set the cursor rendering mode.
+  - `CursorMode::Fit`: cursor uses the paragraph's visible area
+  - `CursorMode::Expanded`: cursor uses the paragraph's full area
+  
+  ```rust
+  paragraph()
+      .cursor_mode(CursorMode::Expanded)
+  ```
+</ParamField>
+
+### Highlighting (for text selection)
+
+<ParamField path="highlights" type="impl Into<Option<Vec<(usize, usize)>>>">
+  Set text selection highlights as ranges.
+  
+  ```rust
+  paragraph()
+      .span(Span::new("Selected text"))
+      .highlights(vec![(0, 8)])
+  ```
+</ParamField>
+
+<ParamField path="highlight_color" type="Color">
+  Set the highlight/selection color.
+  
+  ```rust
+  paragraph()
+      .highlight_color(Color::from_rgb(200, 200, 255))
+  ```
+</ParamField>
+
+### Reference
+
+<ParamField path="holder" type="ParagraphHolder">
+  Set a holder to access the underlying Skia paragraph for advanced operations.
+  
+  ```rust
+  let holder = ParagraphHolder::default();
+  paragraph()
+      .span(Span::new("Text"))
+      .holder(holder.clone())
+  ```
+</ParamField>
+
+### Layout
+
+<ParamField path="width" type="Size">
+  Set the width constraint.
+  
+  ```rust
+  paragraph()
+      .span(Span::new("Fixed width"))
+      .width(200.0)
+  ```
+</ParamField>
+
+<ParamField path="height" type="Size">
+  Set the height constraint.
+  
+  ```rust
+  paragraph()
+      .span(Span::new("Fixed height"))
+      .height(100.0)
+  ```
+</ParamField>
+
+<ParamField path="padding" type="Gaps">
+  Set padding around the paragraph.
+  
+  ```rust
+  paragraph()
+      .span(Span::new("Padded"))
+      .padding(10.0)
+  ```
+</ParamField>
+
+### Text Style (default for spans)
+
+<ParamField path="color" type="Color">
+  Set the default text color for spans.
+  
+  ```rust
+  paragraph()
+      .color(Color::BLACK)
+      .span(Span::new("Uses default color"))
+  ```
+</ParamField>
+
+<ParamField path="font_size" type="FontSize">
+  Set the default font size for spans.
+  
+  ```rust
+  paragraph()
+      .font_size(16.0)
+      .span(Span::new("Default size"))
+  ```
+</ParamField>
+
+<ParamField path="font_family" type="impl Into<Cow<'static, str>>">
+  Set the default font family for spans.
+  
+  ```rust
+  paragraph()
+      .font_family("Inter")
+      .span(Span::new("Text in Inter"))
+  ```
+</ParamField>
+
+### Events
+
+<ParamField path="on_press" type="EventHandler">
+  Handle press/click events.
+  
+  ```rust
+  paragraph()
+      .span(Span::new("Clickable"))
+      .on_press(|_| println!("Clicked!"))
+  ```
+</ParamField>
+
+<ParamField path="on_mouse_move" type="EventHandler<MouseEventData>">
+  Handle mouse move events.
+</ParamField>
+
+## Span Methods
+
+A `Span` represents a styled segment of text within a paragraph.
+
+### Creating Spans
+
+```rust
+Span::new("text")           // From &str
+Span::from("text")          // From &str
+Span::from(String::new())   // From String
+```
+
+### Span Text Styling
+
+<ParamField path="color" type="Color">
+  Set the span's text color.
+  
+  ```rust
+  Span::new("Red").color(Color::RED)
+  ```
+</ParamField>
+
+<ParamField path="font_size" type="FontSize">
+  Set the span's font size.
+  
+  ```rust
+  Span::new("Large").font_size(24.0)
+  ```
+</ParamField>
+
+<ParamField path="font_weight" type="FontWeight">
+  Set the span's font weight.
+  
+  ```rust
+  Span::new("Bold").font_weight(FontWeight::BOLD)
+  ```
+</ParamField>
+
+<ParamField path="font_slant" type="FontSlant">
+  Set the span's font slant.
+  
+  ```rust
+  Span::new("Italic").font_slant(FontSlant::ITALIC)
+  ```
+</ParamField>
+
+<ParamField path="font_family" type="impl Into<Cow<'static, str>>">
+  Set the span's font family.
+  
+  ```rust
+  Span::new("Mono").font_family("Fira Code")
+  ```
+</ParamField>
+
+<ParamField path="text_shadow" type="TextShadow">
+  Add a text shadow to the span.
+  
+  ```rust
+  Span::new("Shadowed").text_shadow(TextShadow::new(
+      (2.0, 2.0),
+      5.0,
+      Color::BLACK
+  ))
+  ```
+</ParamField>
+
+## Examples
+
+### Basic Rich Text
+
+```rust
+paragraph()
+    .span(Span::new("Welcome ").font_size(24.0).font_weight(FontWeight::BOLD))
+    .span(Span::new("to Freya!").font_size(18.0))
+```
+
+### Multi-colored Text
+
+```rust
+paragraph()
+    .span(Span::new("Red ").color(Color::RED))
+    .span(Span::new("Green ").color(Color::GREEN))
+    .span(Span::new("Blue").color(Color::BLUE))
+```
+
+### Mixed Font Styles
+
+```rust
+paragraph()
+    .span(Span::new("This is "))
+    .span(Span::new("bold").font_weight(FontWeight::BOLD))
+    .span(Span::new(" and this is "))
+    .span(Span::new("italic").font_slant(FontSlant::ITALIC))
+```
+
+### Text Editor with Cursor
+
+```rust
+let cursor_pos = use_state(|| 0);
+let text = "Editable text";
+
+paragraph()
+    .span(Span::new(text))
+    .cursor_index(cursor_pos())
+    .cursor_color(Color::BLACK)
+    .cursor_style(CursorStyle::Line)
+    .on_press(move |e| {
+        // Update cursor position based on click
+    })
+```
+
+### Text with Selection
+
+```rust
+let selection = use_state(|| (0, 5));
+
+paragraph()
+    .span(Span::new("Selected text here"))
+    .highlights(vec![selection()])
+    .highlight_color(Color::from_rgb(200, 220, 255))
+```
+
+### Vertically Centered Paragraph
+
+```rust
+paragraph()
+    .span(Span::new("Centered"))
+    .height(100.0)
+    .vertical_align(VerticalAlign::Center)
+```
+
+### Dynamic Spans from Data
+
+```rust
+let words = vec!["One", "Two", "Three"];
+let colors = vec![Color::RED, Color::GREEN, Color::BLUE];
+
+paragraph()
+    .spans_iter(
+        words.iter()
+            .zip(colors.iter())
+            .map(|(word, color)| {
+                Span::new(*word)
+                    .color(*color)
+                    .font_size(20.0)
+            })
+    )
+```
+
+## Notes
+
+- Use `label()` for simple single-style text
+- Use `paragraph()` for rich text with multiple styles
+- Each span can have its own color, size, weight, and other text properties
+- Paragraph supports text editing features like cursor and selection
+- Text measurement and layout are handled automatically
