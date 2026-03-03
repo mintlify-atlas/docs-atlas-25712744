@@ -49,6 +49,7 @@
               "components/button",
               "components/input",
               "components/checkbox",
+              "components/switch",
               "components/slider",
               "components/scrollview",
               "components/table",

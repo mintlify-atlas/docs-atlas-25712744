@@ -1,0 +1,224 @@
+---
+title: Switch
+description: Toggle switch component for binary on/off states
+icon: toggle-on
+---
+
+# Switch
+
+The `Switch` component provides a toggle control for binary states, commonly used for enabling/disabling features or switching between two options (like light/dark theme).
+
+## Basic Usage
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut toggled = use_state(|| false);
+
+    Switch::new()
+        .toggled(toggled)
+        .on_toggle(move |_| toggled.toggle())
+}
+```
+
+## Properties
+
+<ParamField path="toggled" type="impl Into<Readable<bool>>">
+  The current toggle state of the switch
+</ParamField>
+
+<ParamField path="on_toggle" type="impl Into<EventHandler<()>>">
+  Callback triggered when the switch is toggled
+</ParamField>
+
+<ParamField path="enabled" type="impl Into<bool>" default="true">
+  Whether the switch is enabled or disabled
+</ParamField>
+
+<ParamField path="theme" type="SwitchThemePartial">
+  Custom theme overrides for the switch appearance
+</ParamField>
+
+## Examples
+
+### Basic Toggle
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut enabled = use_state(|| false);
+
+    rect()
+        .spacing(12.)
+        .child(Switch::new()
+            .toggled(enabled)
+            .on_toggle(move |_| enabled.toggle())
+        )
+        .child(label()
+            .text(if enabled() { "Enabled" } else { "Disabled" })
+        )
+}
+```
+
+### Theme Switcher
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut dark_mode = use_state(|| false);
+
+    rect()
+        .expanded()
+        .center()
+        .spacing(12.)
+        .background(if dark_mode() {
+            (30, 30, 30)
+        } else {
+            (240, 240, 240)
+        })
+        .child(label()
+            .text(if dark_mode() { "Dark Mode" } else { "Light Mode" })
+            .color(if dark_mode() {
+                (255, 255, 255)
+            } else {
+                (0, 0, 0)
+            })
+        )
+        .child(Switch::new()
+            .toggled(dark_mode)
+            .on_toggle(move |_| dark_mode.toggle())
+        )
+}
+```
+
+### Disabled State
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let toggled = use_state(|| true);
+
+    rect()
+        .spacing(12.)
+        .child(
+            Switch::new()
+                .toggled(toggled)
+                .enabled(false)
+        )
+        .child(label()
+            .text("Disabled switch")
+            .font_size(14.)
+        )
+}
+```
+
+### Multiple Switches
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut notifications = use_state(|| true);
+    let mut sound = use_state(|| false);
+    let mut vibration = use_state(|| true);
+
+    rect()
+        .spacing(16.)
+        .child(setting_row("Notifications", notifications, move |_| notifications.toggle()))
+        .child(setting_row("Sound", sound, move |_| sound.toggle()))
+        .child(setting_row("Vibration", vibration, move |_| vibration.toggle()))
+}
+
+fn setting_row(
+    title: &'static str,
+    toggled: Readable<bool>,
+    on_toggle: impl Into<EventHandler<()>>,
+) -> impl IntoElement {
+    rect()
+        .horizontal()
+        .width(Size::fill())
+        .padding(12.)
+        .spacing(12.)
+        .main_align(Alignment::SpaceBetween)
+        .child(label().text(title).font_size(16.))
+        .child(Switch::new().toggled(toggled).on_toggle(on_toggle))
+}
+```
+
+## Accessibility
+
+The Switch component includes built-in accessibility features:
+- Properly marked with `Toggled` role for screen readers
+- Keyboard navigable (focus with Tab)
+- Toggle with Space/Enter keys when focused
+- Announces current state to assistive technologies
+
+## Theming
+
+The Switch component respects the current theme and can be customized:
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut toggled = use_state(|| false);
+
+    Switch::new()
+        .toggled(toggled)
+        .on_toggle(move |_| toggled.toggle())
+        .theme(SwitchThemePartial {
+            background: Some((100, 100, 255).into()),
+            thumb_background: Some((255, 255, 255).into()),
+            ..Default::default()
+        })
+}
+```
+
+## Common Patterns
+
+### Settings Panel
+
+```rust
+use freya::prelude::*;
+
+fn app() -> impl IntoElement {
+    let mut auto_save = use_state(|| true);
+    let mut spell_check = use_state(|| false);
+    let mut line_numbers = use_state(|| true);
+
+    rect()
+        .padding(20.)
+        .spacing(20.)
+        .child(label().text("Editor Settings").font_size(20.))
+        .child(setting_item("Auto Save", auto_save, move |_| auto_save.toggle()))
+        .child(setting_item("Spell Check", spell_check, move |_| spell_check.toggle()))
+        .child(setting_item("Line Numbers", line_numbers, move |_| line_numbers.toggle()))
+}
+
+fn setting_item(
+    name: &'static str,
+    state: Readable<bool>,
+    on_toggle: impl Into<EventHandler<()>>,
+) -> impl IntoElement {
+    rect()
+        .horizontal()
+        .main_align(Alignment::SpaceBetween)
+        .padding(12.)
+        .child(label().text(name))
+        .child(Switch::new().toggled(state).on_toggle(on_toggle))
+}
+```
+
+## See Also
+
+- [Checkbox](/components/checkbox) - For multiple-choice selections
+- [Button](/components/button) - For triggering actions
+- [Tile](/components/checkbox#with-tile) - Container for interactive elements
+
+## Source Code
+
+View the [Switch component source](https://github.com/marc2332/freya/blob/main/crates/freya-components/src/switch.rs) and [example](https://github.com/marc2332/freya/blob/main/examples/component_switch.rs) on GitHub.
