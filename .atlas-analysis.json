@@ -1,0 +1,180 @@
+{
+  "projectType": "framework",
+  "projectName": "Freya",
+  "projectDescription": "Cross-platform native GUI framework for Rust powered by Skia",
+  "theme": "aspen",
+  "primaryColor": "#D2691E",
+  "lightColor": "#E07B39",
+  "darkColor": "#B8551A",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/components",
+              "concepts/elements",
+              "concepts/state-management",
+              "concepts/hooks",
+              "concepts/layers",
+              "concepts/events"
+            ]
+          },
+          {
+            "group": "Built-in Components",
+            "pages": [
+              "components/overview",
+              "components/button",
+              "components/input",
+              "components/checkbox",
+              "components/slider",
+              "components/scrollview",
+              "components/table",
+              "components/calendar",
+              "components/color-picker",
+              "components/image-viewer",
+              "components/canvas"
+            ]
+          },
+          {
+            "group": "Advanced Features",
+            "pages": [
+              "features/animations",
+              "features/routing",
+              "features/state-radio",
+              "features/i18n",
+              "features/testing",
+              "features/accessibility"
+            ]
+          },
+          {
+            "group": "Specialized Modules",
+            "pages": [
+              "modules/code-editor",
+              "modules/terminal",
+              "modules/webview",
+              "modules/plotting",
+              "modules/material-design",
+              "modules/icons"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/styling",
+              "guides/theming",
+              "guides/layouts",
+              "guides/text-editing",
+              "guides/rendering",
+              "guides/platform-integration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core",
+            "pages": [
+              "api/launch",
+              "api/app",
+              "api/component",
+              "api/element"
+            ]
+          },
+          {
+            "group": "Elements",
+            "pages": [
+              "api/elements/rect",
+              "api/elements/label",
+              "api/elements/paragraph",
+              "api/elements/svg"
+            ]
+          },
+          {
+            "group": "Hooks",
+            "pages": [
+              "api/hooks/use-state",
+              "api/hooks/use-effect",
+              "api/hooks/use-memo",
+              "api/hooks/use-animation",
+              "api/hooks/use-editable",
+              "api/hooks/use-focus"
+            ]
+          },
+          {
+            "group": "Styling",
+            "pages": [
+              "api/styling/colors",
+              "api/styling/sizes",
+              "api/styling/borders",
+              "api/styling/shadows"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Declarative component-based UI with reactive state management",
+    "Cross-platform native rendering powered by Skia graphics engine",
+    "Rich set of built-in components (buttons, inputs, tables, calendars, color pickers)",
+    "Smooth animations with easing functions and transitions",
+    "Routing and navigation system for multi-page applications",
+    "Advanced text editing with cursor management and selection",
+    "Code editor with syntax highlighting via tree-sitter",
+    "Terminal emulation with PTY support",
+    "WebView integration for embedding web content",
+    "Internationalization (i18n) with Fluent localization",
+    "Global state management via radio channels",
+    "Headless testing framework for UI components",
+    "Plotting and data visualization with Plotters",
+    "Material Design components and styling",
+    "Icon library support (Lucide)",
+    "Accessibility support with screen readers and focus management",
+    "Developer tools for component tree inspection"
+  ],
+  "publicApiSurface": [
+    "launch() - Start application with window configuration",
+    "rect() - Create rectangle element",
+    "label() - Create text label element",
+    "paragraph() - Create multi-line text element",
+    "svg() - Render SVG graphics",
+    "use_state() - Reactive state hook",
+    "use_effect() - Side effect hook",
+    "use_memo() - Memoized value hook",
+    "use_animation() - Animation control hook",
+    "use_editable() - Text editing hook",
+    "use_focus() - Focus management hook",
+    "use_radio() - Global state subscription",
+    "use_i18n() - Internationalization hook",
+    "Button - Button component",
+    "Input - Text input component",
+    "Checkbox - Checkbox component",
+    "Switch - Toggle switch component",
+    "Slider - Range slider component",
+    "VirtualScrollView - Virtualized scrolling component",
+    "Table - Data table component",
+    "Calendar - Date picker component",
+    "ColorPicker - Color selection component",
+    "ImageViewer - Image display component",
+    "GifViewer - Animated GIF component",
+    "CodeEditor - Code editing component",
+    "Terminal - Terminal emulator component",
+    "WebView - Web content component",
+    "router() - Router configuration",
+    "Link - Navigation link component",
+    "TestingRunner - Headless testing runner"
+  ]
+}
